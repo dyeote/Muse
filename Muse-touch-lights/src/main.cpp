@@ -19,7 +19,7 @@ const int indicateGreen = 20;     // GPIO21 output (green indicator, renamed fro
 // #define BRIGHTNESS  25
 const uint8_t brightnessLevels[] = {12, 25, 64, 128, 192}; // 5%, 10%, 25%, 50%, 75%
 const uint8_t NUM_BRIGHTNESS_LEVELS = sizeof(brightnessLevels) / sizeof(brightnessLevels[0]);
-uint8_t brightnessIndex = 0; // Start at a reasonable default (e.g., 64)
+uint8_t brightnessIndex = 2; // Start at a reasonable default (e.g., 64)
 
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER RGB
@@ -68,7 +68,7 @@ CRGB leds[NUM_LEDS];
 //   }
 // }
 
-// Original "circles" definitions:
+// Base (sub)circles definitions:
 // Inner circle: last 8 pixels
 const int innerCircle[8] = {NUM_LEDS-2, NUM_LEDS-3, NUM_LEDS-4, NUM_LEDS-5,
                             NUM_LEDS-6, NUM_LEDS-7, NUM_LEDS-8, NUM_LEDS-1};
@@ -145,7 +145,7 @@ const int* circles[] = { // Array of pointers to the 23 circle arrays
 };
 const int numCircles = sizeof(circles) / sizeof(circles[0]);
 
-// 9 concentric rings definitions:
+// 9 concentric Rings definitions:
 const int ring1[8] = { // Ring 1: innerCircle
   innerCircle[0], innerCircle[1], innerCircle[2], innerCircle[3],
   innerCircle[4], innerCircle[5], innerCircle[6], innerCircle[7]
@@ -237,6 +237,64 @@ const int ring9[32] = {
 const int* rings[] = { ring1, ring2, ring3, ring4, ring5, ring6, ring7, ring8, ring9 };
 const int ringSizes[] = { 8, 8, 16, 16, 24, 16, 24, 40, 32 };
 const int numRings = sizeof(rings) / sizeof(rings[0]);
+// 16 radial arrays (spokes), of cardinals and secondaries
+// Cardinals (even): 9 pixels each
+const int radial0[9]  = { innerCircle[0], circle2[0], circle3_cardinals[0], circle4_cardinals[0], circle5_cardinals[0], circle6_cardinals_in[0], circle6_cardinals_out[0], circle7_cardinals[0], circle8_cardinals[0] };
+const int radial2[9]  = { innerCircle[1], circle2[1], circle3_cardinals[1], circle4_cardinals[1], circle5_cardinals[1], circle6_cardinals_in[1], circle6_cardinals_out[1], circle7_cardinals[1], circle8_cardinals[1] };
+const int radial4[9]  = { innerCircle[2], circle2[2], circle3_cardinals[2], circle4_cardinals[2], circle5_cardinals[2], circle6_cardinals_in[2], circle6_cardinals_out[2], circle7_cardinals[2], circle8_cardinals[2] };
+const int radial6[9]  = { innerCircle[3], circle2[3], circle3_cardinals[3], circle4_cardinals[3], circle5_cardinals[3], circle6_cardinals_in[3], circle6_cardinals_out[3], circle7_cardinals[3], circle8_cardinals[3] };
+const int radial8[9]  = { innerCircle[4], circle2[4], circle3_cardinals[4], circle4_cardinals[4], circle5_cardinals[4], circle6_cardinals_in[4], circle6_cardinals_out[4], circle7_cardinals[4], circle8_cardinals[4] };
+const int radial10[9] = { innerCircle[5], circle2[5], circle3_cardinals[5], circle4_cardinals[5], circle5_cardinals[5], circle6_cardinals_in[5], circle6_cardinals_out[5], circle7_cardinals[5], circle8_cardinals[5] };
+const int radial12[9] = { innerCircle[6], circle2[6], circle3_cardinals[6], circle4_cardinals[6], circle5_cardinals[6], circle6_cardinals_in[6], circle6_cardinals_out[6], circle7_cardinals[6], circle8_cardinals[6] };
+const int radial14[9] = { innerCircle[7], circle2[7], circle3_cardinals[7], circle4_cardinals[7], circle5_cardinals[7], circle6_cardinals_in[7], circle6_cardinals_out[7], circle7_cardinals[7], circle8_cardinals[7] };
+// Secondaries (odd): 4 pixels each
+const int radial1[4]  = { circle3_secondaries[0], circle4_secondaries[0], circle6_secondaries[0], circle8_secondaries[0] };
+const int radial3[4]  = { circle3_secondaries[1], circle4_secondaries[1], circle6_secondaries[1], circle8_secondaries[1] };
+const int radial5[4]  = { circle3_secondaries[2], circle4_secondaries[2], circle6_secondaries[2], circle8_secondaries[2] };
+const int radial7[4]  = { circle3_secondaries[3], circle4_secondaries[3], circle6_secondaries[3], circle8_secondaries[3] };
+const int radial9[4]  = { circle3_secondaries[4], circle4_secondaries[4], circle6_secondaries[4], circle8_secondaries[4] };
+const int radial11[4] = { circle3_secondaries[5], circle4_secondaries[5], circle6_secondaries[5], circle8_secondaries[5] };
+const int radial13[4] = { circle3_secondaries[6], circle4_secondaries[6], circle6_secondaries[6], circle8_secondaries[6] };
+const int radial15[4] = { circle3_secondaries[7], circle4_secondaries[7], circle6_secondaries[7], circle8_secondaries[7] };
+
+// Array of pointers to the 16 radial arrays
+const int* radials[] = {
+  radial0, radial1, radial2, radial3, radial4, radial5, radial6, radial7,
+  radial8, radial9, radial10, radial11, radial12, radial13, radial14, radial15
+};
+const int radialSizes[] = {9,4,9,4,9,4,9,4,9,4,9,4,9,4,9,4};
+const int numRadials = sizeof(radials) / sizeof(radials[0]);
+
+// buildSectorMapping() function for the 16 angular slices:
+const int sectorLens[16] = {14,9,14,9,14,9,14,9,14,9,14,9,14,9,14,9};
+int sectorPixels[16][14]; // Use max size for all
+
+void buildSectorMapping() {
+  for (int s = 0; s < 16; s++) {
+    int len = 0;
+    int idx = s / 2; // Map 16 sectors to 8 indices
+
+    // Add radial pixels
+    for (int i = 0; i < radialSizes[s]; i++)
+      sectorPixels[s][len++] = radials[s][i];
+
+    // Add the 5 off-radial pixels between this radial and the next, counterclockwise
+    // Right ones for cardinals (even sectors), Left ones for secondaries (odd sectors)
+    if (s % 2 == 0) { // Cardinal sector
+      sectorPixels[s][len++] = circle7_splitRight[idx];
+      sectorPixels[s][len++] = circle6_splitRight[idx];
+      sectorPixels[s][len++] = circle5_splitRight[idx];
+      sectorPixels[s][len++] = circle8_secondRight[idx];
+      sectorPixels[s][len++] = circle7_secondRight[idx];
+    } else { // Secondary sector
+      sectorPixels[s][len++] = circle7_secondLeft[idx];
+      sectorPixels[s][len++] = circle8_secondLeft[idx];
+      sectorPixels[s][len++] = circle5_splitLeft[idx];
+      sectorPixels[s][len++] = circle6_splitLeft[idx];
+      sectorPixels[s][len++] = circle7_splitLeft[idx];
+    }
+  }
+}
 
 // Static Mode functions:
 void showStatic0() { // Static Mode #0: (Something, formerly Candy-corn)
@@ -382,6 +440,8 @@ void showSeasonalWheel() { // Show the seasonal color wheel
 }
 
 void setup() {
+  buildSectorMapping(); // Build the sector mapping
+
   pinMode(adminSensorPin, INPUT);    // Renamed from testSensorPin
   pinMode(centerSensorPin, INPUT);
   pinMode(freeSensorPin, INPUT);
@@ -401,9 +461,24 @@ void setup() {
   FastLED.setBrightness(brightnessLevels[brightnessIndex]);
   FastLED.clear(); // Clear all LEDs at startup
   
+  // Visualize the 16 sectors with distinct colors in setup()
+  for (int s = 0; s < 16; s++) {
+    CRGB color = palette[s % 8]; // Use palette colors, repeat every 8
+    for (int i = 0; i < sectorLens[s]; i++) {
+      leds[sectorPixels[s][i]] = color;
+    }
+  }
+
+  // for (int r = 0; r < numRadials; r++) {
+  //   CRGB color = palette[r % 4];
+  //   for (int i = 0; i < radialSizes[r]; i++) {
+  //     leds[radials[r][i]] = color;
+  //   }
+  // }
+
   // // Loop through each ring group
-  // for (int ringIndex = 0; ringIndex < numRings; ringIndex++) { 
-  //   CRGB ringColor = palette[ringIndex % 6]; // Cycle through palette with mod 7
+  // for (int r = 0; r < numRings; r++) { 
+  //   CRGB ringColor = palette[r % 6]; // Cycle through palette with mod 7
   //   // Color all pixels in this ring
   //   for (int i = 2; i < ringSizes[ringIndex]; i++) {
   //     leds[rings[ringIndex][i]] = ringColor;
@@ -579,16 +654,17 @@ void showCenterBurst() { // Center burst effect: breathe out and in with separat
   static unsigned long pauseStart = 0;
   static bool pauseAtOuter = false; // true if pausing at outermost, false if at innermost
 
-  static uint8_t ringBrightness[9] = {0}; // Track brightness for each ring
+  static uint8_t ringBrightness[9] = {0};     // Track brightness for each ring
+  static uint8_t innerPauseBrightness = 255;  // Track inner ring brightness during pause
 
-  const unsigned long expandInterval = 80;     // Faster expansion
-  const unsigned long contractInterval = 240;  // Slower contraction
-  const unsigned long pauseOuter = 800;        // Pause at outermost ring
-  const unsigned long pauseInner = 800;        // Pause at innermost ring
-  const uint8_t fadeStep = 8;                  // Smaller step for slower fade
+  const unsigned long expandInterval = 80;    // Faster expansion
+  const unsigned long contractInterval = 250; // Slower contraction
+  const unsigned long pauseOuter = 800;       // Pause at outermost ring
+  const unsigned long pauseInner = 800;       // Pause at innermost ring
+  const uint8_t fadeStep = 8;                 // Smaller step for slower fade
 
-  const uint8_t ringPalette[] = {0, 1, 1, 2, 2, 3, 3, 3, 4};
-
+  const uint8_t ringPalette[] = {0, 1, 1, 2, 2, 3, 3, 4, 4};
+  // Start burst effect
   if (!burstActive) {
     burstActive = true;
     burstStart = millis();
@@ -601,7 +677,6 @@ void showCenterBurst() { // Center burst effect: breathe out and in with separat
     FastLED.show();
     return;
   }
-
   // Handle pause between out and in
   if (inPause) {
     unsigned long pauseInterval = pauseAtOuter ? pauseOuter : pauseInner;
@@ -609,12 +684,22 @@ void showCenterBurst() { // Center burst effect: breathe out and in with separat
       inPause = false;
       burstOut = !burstOut; // Switch direction after pause
       burstStart = millis();
+      innerPauseBrightness = 255; // Reset for next time
     } else {
       // During contracted pause, show only the innermost ring
       fill_solid(leds, NUM_LEDS, CRGB::Black);
       if (!pauseAtOuter) {
+        // Fade inner ring down to target brightness during pause
+        if (innerPauseBrightness > 128) {
+          innerPauseBrightness = max(128, innerPauseBrightness - fadeStep);
+        }
         for (int i = 0; i < ringSizes[0]; i++) {
-          leds[rings[0][i]] = CRGB::Grey; // Inner ring at half brightness
+          CRGB base = palette[ringPalette[0]];
+          leds[rings[0][i]] = CRGB(
+            (base.r * innerPauseBrightness) / 255,
+            (base.g * innerPauseBrightness) / 255,
+            (base.b * innerPauseBrightness) / 255
+          );
         }
       } else {
         // During expanded pause, show all rings
@@ -628,7 +713,6 @@ void showCenterBurst() { // Center burst effect: breathe out and in with separat
       return;
     }
   }
-
   // Brightness smoothing for contraction phase (runs every frame)
   for (int r = 0; r < 9; r++) {
     if (burstOut) {
@@ -643,7 +727,6 @@ void showCenterBurst() { // Center burst effect: breathe out and in with separat
       }
     }
   }
-
   // Draw rings with current brightness (manual scaling)
   fill_solid(leds, NUM_LEDS, CRGB::Black);
   for (int r = 0; r < 9; r++) {
@@ -659,12 +742,11 @@ void showCenterBurst() { // Center burst effect: breathe out and in with separat
   }
   FastLED.show();
 
-  // Only update burst step at interval
+  // If expanding, use expandInterval; if contracting, use contractInterval
   unsigned long interval = burstOut ? expandInterval : contractInterval;
   if (millis() - burstStart >= interval) {
-    burstStart = millis();
-
-    if (burstOut) {
+    burstStart = millis(); // Reset burst start time
+    if (burstOut) { // Expanding
       burstStep++;
       if (burstStep > 8) { // reached outermost, pause before contracting
         burstStep = 8;
@@ -672,10 +754,10 @@ void showCenterBurst() { // Center burst effect: breathe out and in with separat
         pauseAtOuter = true;
         pauseStart = millis();
       }
-    } else {
+    } else { // Contracting
       if (burstStep > 0) {
         burstStep--;
-      } else if (burstStep == 0) {
+      } else if (burstStep == 0) { // reached innermost, pause before expanding
         inPause = true;
         pauseAtOuter = false;
         pauseStart = millis();
@@ -684,12 +766,12 @@ void showCenterBurst() { // Center burst effect: breathe out and in with separat
   }
 }
 
-void showRainbowFade() { // Rainbow fade effect across all rings
+// Isa's input on speed : both 20 and 40 have their merits
+void showRainbowFade(uint16_t fadeSpeed) { // Rainbow fade effect across all rings
   static uint8_t baseHue = 0;
   static unsigned long lastUpdate = 0;
-
-  // Update every 20 ms for smooth animation
-  if (millis() - lastUpdate > 20) {
+  // Update every fadeSpeed ms for smooth animation
+  if (millis() - lastUpdate > fadeSpeed) {
     lastUpdate = millis();
     baseHue++;
   }
@@ -703,22 +785,11 @@ void showRainbowFade() { // Rainbow fade effect across all rings
   FastLED.show();
 }
 
-void showSpiralFill() { // Spiral fill effect
+// Isa's opinion on chaotic spiral palette mixing : not great because 4 colors is too kunterbunt
+void showSpiralFill(const CRGB* activePalette, uint8_t numColors) { // Spiral fill effect
   static unsigned long lastUpdate = 0;
   static int colorIndex = 0;
   static int pixelIndex = 0;
-  
-  // Build the spiral order (all pixels now valid)
-  static int spiralOrder[NUM_LEDS];
-  static int spiralLen = 0;
-  static bool spiralInit = false;
-  if (!spiralInit) {
-    // 183 down to 0 (all pixels)
-    for (int i = 183; i >= 0; i--) {
-      spiralOrder[spiralLen++] = i;
-    }
-    spiralInit = true;
-  }
 
   // Wipe to black only at the onset of the mode
   if (firstSpiralRun == true) {
@@ -730,29 +801,72 @@ void showSpiralFill() { // Spiral fill effect
     return;
   }
 
-  // Animate
-  if (millis() - lastUpdate > 50) { // Update spiral pixels every 50 ms
+  // Animate spiral fill
+  if (millis() - lastUpdate > 40) { // Update spiral pixels every 40 ms
     lastUpdate = millis();
-
-    if (pixelIndex < spiralLen) {
-      leds[spiralOrder[pixelIndex]] = palette[colorIndex];
+    if (pixelIndex < NUM_LEDS) {
+      leds[NUM_LEDS - 1 - pixelIndex] = activePalette[colorIndex]; // Fill from the (inner) end of the light pebbles string
       pixelIndex++;
       FastLED.show();
     } else {
       // Finished this color, move to next color
       colorIndex++;
-      if (colorIndex > 6) colorIndex = 0;
+      if (colorIndex >= numColors) colorIndex = 0;
       pixelIndex = 0;
-      // Do NOT wipe to black, just start drawing next color on top
+      // Do not wipe to black, just start drawing next color on top
     }
   }
+}
+
+void showRadarSweep() {
+  static unsigned long lastUpdate = 0;
+  static int sweepIndex = 0;
+  const uint8_t tailLength = 6; // Number of fading tail octants
+  const uint8_t fadeStep = 48;  // Amount to fade per tail step
+
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+
+  // Sweep timing
+  if (millis() - lastUpdate > 200) {
+    lastUpdate = millis();
+    sweepIndex = (sweepIndex + 1) % 16; // 16 sectors
+    // sweepIndex = (sweepIndex - 1 + 16) % 16; // clockwise
+  }
+
+  // Tail: fill all pixels in the trailing sectors
+  for (int t = 1; t < tailLength; t++) { // Start at 1 so leading edge is handled separately
+    int tailIdx = (sweepIndex - t + 16) % 16;
+    // int tailIdx = (sweepIndex + t) % 16;
+    uint8_t brightness = 255 - (t * fadeStep);
+    CRGB color = CRGB(
+      (palette[7].r * brightness) / 255,
+      (palette[7].g * brightness) / 255,
+      (palette[7].b * brightness) / 255
+    );
+    for (int i = 0; i < sectorLens[tailIdx]; i++) {
+      leds[sectorPixels[tailIdx][i]] = color;
+    }
+  }
+
+  // Leading edge: only the radial line in white
+  for (int i = 0; i < radialSizes[sweepIndex]; i++) {
+    leds[radials[sweepIndex][i]] = CRGB::White;
+  }
+
+  FastLED.show();
 }
 
 void loop() {
   // showBreathing();
   // showTwinkle();
   // showBlueCardinals();
-  showCenterBurst();
+  // showCenterBurst();
+  // showRainbowFade(40); // 40 ms transition speed
+  // // kunterbunt happy chaos spiral:
+  // showSpiralFill(yearPalette, 8); // spiralFill all colors in yearPalette
+  // showSpiralFill(palette, 8);     // spiralFill first 7 colors in palette
+  showRadarSweep();
+
   // TEMPORARY: Disable all loop functionality for setup() testing
   static bool disableLoop = true;
   if (disableLoop) {
@@ -900,8 +1014,8 @@ void loop() {
       case TWINKLE:        showTwinkle(); break;
       case SeasonalWheel:  showSeasonalWheel(); break;
       case CenterBurst:    showCenterBurst(); break;
-      case RainbowFade:    showRainbowFade(); break;
-      case SpiralFill:     showSpiralFill(); break;
+      case RainbowFade:    showRainbowFade(40); break; // 40 ms (slower) fade speed
+      case SpiralFill:     showSpiralFill(palette, 7); break; // normal palette excluding chartreuse
       default:             showStatic1(); break;
     }
     lastEffect = currentEffect;
