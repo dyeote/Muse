@@ -2,10 +2,10 @@
 #include <FastLED.h>
 // #include <time.h>  // Add this for time functions
 
-const int edgeSensorPin = 4;     // GPIO4 input (new)
-const int adminSensorPin = 2;    // GPIO2 input
-const int centerSensorPin = 3;   // GPIO7 input (swapped)
-const int freeSensorPin = 7;     // GPIO3 input (swapped)
+// const int edgeSensorPin = 4;     // GPIO4 input (new/unused)
+const int adminSensorPin = 2;    // GPIO2 input 
+const int centerSensorPin = 4;   // GPIO3 input (swapped)
+// const int freeSensorPin = 3;     // GPIO4 input (swapped)
 
 const int indicateYellow = 8;     // GPIO8 output (yellow indicator)
 const int indicateWhite = 9;      // GPIO9 output (white indicator) 
@@ -15,16 +15,14 @@ const int indicateGreen = 20;     // GPIO21 output (green indicator, renamed fro
 #define LED_PIN     21     // GPIO20 output pin for addressable LEDs
 #define NUM_LEDS    184    // Updated total LED count; was 150 in v1 with numbers 0,1,2,3,4,37 unused
 #define BRIGHTNESS  64
-// #define BRIGHTNESS  12
-// #define BRIGHTNESS  25
-const uint8_t brightnessLevels[] = {12, 25, 64, 128, 192}; // 5%, 10%, 25%, 50%, 75%
+const uint8_t brightnessLevels[] = {12, 25, 64, 191}; // 5%, 10%, 25%, 75%
 const uint8_t NUM_BRIGHTNESS_LEVELS = sizeof(brightnessLevels) / sizeof(brightnessLevels[0]);
-uint8_t brightnessIndex = 2; // Start at a reasonable default (e.g., 64)
+uint8_t brightnessIndex = 0; // Start at a reasonable default (e.g., 64)
 
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER RGB
-// const unsigned long DYNAMIC_PHASE_DURATION = 300000; // 5 minutes in milliseconds
-const unsigned long DYNAMIC_PHASE_DURATION = 3000; // 3 seconds in milliseconds
+const unsigned long DYNAMIC_PHASE_DURATION = 300000; // 5 minutes in milliseconds
+// const unsigned long DYNAMIC_PHASE_DURATION = 3000; // 3 seconds in milliseconds
 
 // Muse palette: White, Orange(Yellow), OrangeRed(Orange), Red, Magenta, Blue, Cyan, Chartreuse
 const CRGB palette[8] = {
@@ -33,6 +31,16 @@ const CRGB palette[8] = {
 };
 // WotY palette: white Winter, blue Imbloc, chartreuse Spring, cyan Beltane,
 //               yellow Summer, magenta Lammas, orange Autumn, red Samhain.
+  // Feast   | Date   | Day # | Palette Color
+  // ------- | ------ | ----- | -------------
+  // Imbolc  | 1 Feb  | 32    | Blue
+  // Ostara  | 20 Mar | 79    | Chartreuse
+  // Beltane | 1 May  | 121   | Cyan
+  // Litha   | 21 Jun | 172   | Orange (Yellow)
+  // Lammas  | 1 Aug  | 213   | Magenta
+  // Mabon   | 22 Sep | 265   | OrangeRed (Orange)
+  // Samhain | 31 Oct | 304   | Red
+  // Yule    | 21 Dec | 355   | White
 const CRGB yearPalette[8] = {
   CRGB::White, CRGB::Blue, CRGB::Chartreuse, CRGB::Cyan,
   CRGB::Orange, CRGB::Magenta, CRGB::OrangeRed, CRGB::Red
@@ -67,7 +75,7 @@ CRGB leds[NUM_LEDS];
 //     leds[index] = color;
 //   }
 // }
-
+// Folded Mappings:
 // Base (sub)circles definitions:
 // Inner circle: last 8 pixels
 const int innerCircle[8] = {NUM_LEDS-2, NUM_LEDS-3, NUM_LEDS-4, NUM_LEDS-5,
@@ -267,7 +275,7 @@ const int numRadials = sizeof(radials) / sizeof(radials[0]);
 
 // buildSectorMapping() function for the 16 angular slices:
 const int sectorLens[16] = {14,9,14,9,14,9,14,9,14,9,14,9,14,9,14,9};
-int sectorPixels[16][14]; // Use max size for all
+int sectorPixels[16][14]; // Use max size for all sectors
 
 void buildSectorMapping() {
   for (int s = 0; s < 16; s++) {
@@ -295,6 +303,46 @@ void buildSectorMapping() {
     }
   }
 }
+// Build left and right curves for each sector:
+int leftCurves[8][6]; // 8 curves, 6 pixels each
+void buildLeftCurves() {
+  for (int s = 0; s < 8; s++) {
+    leftCurves[s][0] = circle3_secondaries[s];
+    leftCurves[s][1] = circle4_secondaries[s];
+    leftCurves[s][2] = circle5_splitLeft[s];
+    leftCurves[s][3] = circle6_splitLeft[s];
+    leftCurves[s][4] = circle7_splitLeft[s];
+    leftCurves[s][5] = circle8_cardinals[(s + 1) % 8]; // last cardinal of next sector
+  }
+}
+
+int rightCurves[8][6]; // 8 curves, 6 pixels each
+void buildRightCurves() {
+  for (int s = 0; s < 8; s++) {
+    rightCurves[s][0] = circle3_secondaries[s];
+    rightCurves[s][1] = circle4_secondaries[s];
+    rightCurves[s][2] = circle5_splitRight[s];
+    rightCurves[s][3] = circle6_splitRight[s];
+    rightCurves[s][4] = circle7_splitRight[s];
+    rightCurves[s][5] = circle8_cardinals[s]; // last cardinal of same sector
+  }
+}
+
+// Debouncing variables:
+static bool lastAdminState = LOW;
+static bool lastCenterState = LOW;
+static bool lastFreeState = LOW;
+// static bool lastEdgeState = LOW;
+static unsigned long lastAdminChange = 0;
+static unsigned long lastCenterChange = 0;
+static unsigned long lastFreeChange = 0;
+// static unsigned long lastEdgeChange = 0;
+const unsigned long debounceDelay = 200; // 200ms debounce
+// Debounced sensor states
+static bool debouncedAdminState = LOW;
+static bool debouncedCenterState = LOW;
+static bool debouncedFreeState = LOW;
+// static bool debouncedEdgeState = LOW;
 
 // Static Mode functions:
 void showStatic0() { // Static Mode #0: (Something, formerly Candy-corn)
@@ -406,47 +454,73 @@ void showStatic3() { // Static Mode #3: Spectrum Pizza -
   FastLED.show();
 }
 
-void showWOTY(int dayOfYear) { // rotatable Wheel of the Year based on date
-  // Normalize dayOfYear to 0-364 range (365 days in a year)
-  dayOfYear = dayOfYear % 365;  
-  // Calculate rotation offset based on day of year
-  // Winter Solstice (Yule) is around day 355 (Dec 21), white should be on top
-  // Each season is ~45.625 days (365/8), each palette position is ~45.625 days
-  int seasonOffset = (dayOfYear + 10 + 137) / 45; // +10 to align Yule properly +137 (3/8 turn) to align 8th oct to top
-  seasonOffset = seasonOffset % 8; // Keep in 0-7 range  
-  for (int group = 0; group < numCircles; group++) { 
-    for (int i = 0; i < 8; i++) {
-      // Rotate the palette based on the season
-      // (7-i) gives counterclockwise order, +seasonOffset rotates to current season
-      int paletteIndex = (7 - i + seasonOffset) % 8;
-      leds[circles[group][i]] = yearPalette[paletteIndex];
+void showWOTY(int dayOfYear) { // Wheel of the Year with 16-sector resolution
+  dayOfYear = dayOfYear % 365;
+  // Each sector is ~22.8 days (365/16)
+  int seasonOffset = (dayOfYear + 10) / 23; // +10 to align Yule
+  seasonOffset = seasonOffset % 16; // Keep in 0-15 range
+
+  for (int s = 0; s < 16; s++) {
+    // Rotate the palette based on the season
+    int paletteIndex = ((21 - s + seasonOffset)/2) % 8; // Use 8-color yearPalette, repeat every 8
+    CRGB color = yearPalette[paletteIndex];
+    for (int i = 0; i < sectorLens[s]; i++) {
+      leds[sectorPixels[s][i]] = color;
     }
   }
   FastLED.show();
 }
 
-void showSeasonalWheel() { // Show the seasonal color wheel
+void showSeasonalWheel(int numberOfRings) { // Show the seasonal color wheel
   // All off except inner circle (showing the Seasonal Color Wheel)
   fill_solid(leds, NUM_LEDS, CRGB::Black);
-  leds[NUM_LEDS-4] = CRGB::White;      // Our palette 0
-  leds[NUM_LEDS-3] = CRGB::Blue;       // Our palette 5
-  leds[NUM_LEDS-2] = CRGB::Chartreuse; // Our palette 7
-  leds[NUM_LEDS-1] = CRGB::Cyan;       // Our palette 6
-  leds[NUM_LEDS-8] = CRGB::Orange;     // Our palette 1
-  leds[NUM_LEDS-7] = CRGB::Magenta;    // Our palette 4
-  leds[NUM_LEDS-6] = CRGB::OrangeRed;  // Our palette 2
-  leds[NUM_LEDS-5] = CRGB::Red;        // Our palette 3
+  for (int i = 0; i < numberOfRings; i++) {
+    for (int j = 0; j < 8; j++) {
+      CRGB color = yearPalette[(10 - j) % 8]; // Use the Wheel of the Year's palette
+      leds[radials[j*2][i]] = color;
+    }
+  }
+  // // Show the seasonal color wheel in the inner circle
+  // leds[NUM_LEDS-4] = CRGB::White;      // Our palette 0
+  // leds[NUM_LEDS-3] = CRGB::Blue;       // Our palette 5
+  // leds[NUM_LEDS-2] = CRGB::Chartreuse; // Our palette 7
+  // leds[NUM_LEDS-1] = CRGB::Cyan;       // Our palette 6
+  // leds[NUM_LEDS-8] = CRGB::Orange;     // Our palette 1
+  // leds[NUM_LEDS-7] = CRGB::Magenta;    // Our palette 4
+  // leds[NUM_LEDS-6] = CRGB::OrangeRed;  // Our palette 2
+  // leds[NUM_LEDS-5] = CRGB::Red;        // Our palette 3
   FastLED.show();
 }
 
-void setup() {
-  buildSectorMapping(); // Build the sector mapping
+void showFlowerOutline(int octalRotations) {  // The _split curves form a flower outline
+  for (int c = 0; c < 8; c++) {
+    int p = (c + 7) % 8; // curve in the preceding octant
+    CRGB color = palette[c];
+    for (int i = 0; i < 6; i++) {
+      leds[leftCurves[(p+octalRotations)%8][i]] = color;
+      // Special case: for last right curve (c==7), skip i==0 and i==1
+      if (!(c == 7 && (i == 0 || i == 1))) {
+        leds[rightCurves[(c+octalRotations)%8][i]] = color;
+      }
+    }
+    // leds[ring1[c]] = color;
+    // leds[ring2[c]] = color;
+  }
+  FastLED.show();
+}
 
-  pinMode(adminSensorPin, INPUT);    // Renamed from testSensorPin
+unsigned long bootTime = 0;
+
+void setup() {
+  bootTime = millis();
+  // Serial.begin(115200); // Start serial for debugging
+  buildSectorMapping(); // Build the sector mapping
+  buildLeftCurves();
+  buildRightCurves();
+  pinMode(adminSensorPin, INPUT);
   pinMode(centerSensorPin, INPUT);
-  pinMode(freeSensorPin, INPUT);
-  pinMode(edgeSensorPin, INPUT);
-  
+  // pinMode(freeSensorPin, INPUT_PULLUP);
+  // pinMode(edgeSensorPin, INPUT_PULLDOWN);
   pinMode(indicateGreen, OUTPUT);    // Renamed from indicatePin
   pinMode(indicateBlue, OUTPUT);
   pinMode(indicateWhite, OUTPUT);
@@ -454,21 +528,22 @@ void setup() {
   
   digitalWrite(indicateGreen, LOW);  // Start green off
   digitalWrite(indicateBlue, LOW);   // Start blue off
-  digitalWrite(indicateWhite, HIGH); // Start white on (default)
+  digitalWrite(indicateWhite, LOW); // Start white on (default)
   digitalWrite(indicateYellow, LOW); // Start yellow off
-
+  
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
   FastLED.setBrightness(brightnessLevels[brightnessIndex]);
   FastLED.clear(); // Clear all LEDs at startup
-  
-  // Visualize the 16 sectors with distinct colors in setup()
-  for (int s = 0; s < 16; s++) {
-    CRGB color = palette[s % 8]; // Use palette colors, repeat every 8
-    for (int i = 0; i < sectorLens[s]; i++) {
-      leds[sectorPixels[s][i]] = color;
-    }
-  }
+  // delay(500); // Initial setup visualization
 
+  // // Visualize the 16 sectors with distinct colors in setup()
+  // for (int s = 0; s < 16; s++) {
+  //   CRGB color = palette[s % 8]; // Use palette colors, repeat every 8
+  //   for (int i = 0; i < sectorLens[s]; i++) {
+  //     leds[sectorPixels[s][i]] = color;
+  //   }
+  // }
+  // // Visualize the radial sections with distinct colors in setup()
   // for (int r = 0; r < numRadials; r++) {
   //   CRGB color = palette[r % 4];
   //   for (int i = 0; i < radialSizes[r]; i++) {
@@ -478,7 +553,7 @@ void setup() {
 
   // // Loop through each ring group
   // for (int r = 0; r < numRings; r++) { 
-  //   CRGB ringColor = palette[r % 6]; // Cycle through palette with mod 7
+  //   CRGB ringColor = palette[r % 7]; // Cycle through palette with mod 7
   //   // Color all pixels in this ring
   //   for (int i = 2; i < ringSizes[ringIndex]; i++) {
   //     leds[rings[ringIndex][i]] = ringColor;
@@ -490,13 +565,19 @@ void setup() {
   //   leds[circles[group][3]] = palette[group % 8]; // Assign color from palette based on group index
   // }
 
+  // showFlowerOutline(2); // 2 octal rotations bring White to the top
   // showStatic3(); // Show Static Mode #3 (Spectrum Pizza)
-  // showWOTY(228); // Show Wheel of the Year with at a day number in the year
+  // showWOTY(231); // Show Wheel of the Year oriented to today's day number in the year
   // showStatic2(); // Show Static Mode #2 (Foxy YellowBlue)
   // showStatic1(); // Show Static Mode #1 (MVP - Minimally Viable Mandala)
   // showStatic0(); // Show Static Mode #0 (Candy-corn)
-  // showSeasonalWheel(); // Show the Seasonal Color Wheel
+  showSeasonalWheel(8); // Show the Seasonal Color Wheel
+  FastLED.show();
+}
 
+
+void restoreMandalaState() {
+  showSeasonalWheel(9);
   FastLED.show();
 }
 
@@ -507,41 +588,49 @@ bool altMandalaActive = false;
 unsigned long lastEffectUpdate = 0;
 uint8_t effectOffset = 0;
 
-enum EffectMode {  // Define the effect modes
-  STATIC0,         // Static Mode #0: (Candy-corn)
-  STATIC1,         // Static Mode #1: (MVP - Minimally Viable Mandala)
-  FoxyYB,          // Static Mode #2: (Foxy YellowBlue)
-  BlueCardinals,   // Dynamic Mode #3: (Blue Cardinals)
-  BREATHING,       // Breathing effect for outer LEDs
-  TWINKLE,         // Twinkle effect for random LEDs
-  SeasonalWheel,   // Seasonal Color Wheel
+enum EffectMode {  /// Define the effect modes
+  STATIC0,         // Static Mode #0: Candy-corn
+  STATIC1,         // Static Mode #1: MVP - Minimally Viable Mandala
+  FoxyYB,          // Static Mode #2: Foxy YellowBlue
+  BlueCardinals,   // Blue Cardinals (semi-Dynamic)
+  BREATHING,       // All pixels Breathing blue
+  TWINKLE,         // Twinkle effect for random pixels
+  SeasonalWheel,   // mini Seasonal Color Wheel (Static)
   CenterBurst,     // Center burst effect
   RainbowFade,     // Rainbow fade effect
   SpiralFill,      // Spiral fill effect
-  SpectrumPizza,   // Static Mode #3: (Spectrum Pizza)
-  WotY             // Wheel of the Year
+  SpectrumPizza,   // Static Mode #3: Spectrum Pizza
+  WotY,            // full Wheel of the Year (Static)
+  FlowerOutline,   // Flower Outline (Static)
+  RadarSweep,      // Radar Sweep (Dynamic)
+  DynamicFlower,   // Dynamic Flower (Dynamic) - v2's default
+  FragileSpokes    // Fragile Spokes (Dynamic)
 };
 
-const EffectMode allModes[8] = {
-  BlueCardinals, // full semi-dynamic
-  CenterBurst,   // full dynamic
-  BREATHING,     // full dynamic
-  SpiralFill,    // full dynamic
+const EffectMode allModes[] = {
+  // RadarSweep,    // full dynamic
+  // FlowerOutline, // thin static
+  DynamicFlower, // thin dynamic
+  FragileSpokes, // thin dynamic
+
+  // BlueCardinals, // full semi-dynamic
+  // CenterBurst,   // full dynamic
+  // BREATHING,     // full dynamic
+  // SpiralFill,    // full dynamic
 
   // STATIC0,       // full static (Candy-corn)
   // FoxyYB,        // full static (Foxy YellowBlue)
   // SpectrumPizza, // full static (Spectrum Pizza)
-  WotY,          // full static (Wheel of the Year)
+  // WotY,          // full static (Wheel of the Year)
   
-  STATIC1,       // full static (MVP)
+  // STATIC1,       // full static (MVP)
   // SeasonalWheel, // mini static 
-  TWINKLE,       // mini dynamic
-  RainbowFade    // full dynamic
+  // TWINKLE,       // mini dynamic
+  // RainbowFade    // full dynamic
 };
 const uint8_t NUM_MODES = sizeof(allModes) / sizeof(allModes[0]);
 uint8_t modeIndex = 0;
-
-EffectMode currentEffect = STATIC1; // Start with Static Mode #1
+EffectMode currentEffect = DynamicFlower; // Start with Dynamic Flower
 
 bool burstActive = false;           // Center burst effect state
 bool showingColorWheel = false;     // Seasonal Color Wheel state
@@ -818,16 +907,16 @@ void showSpiralFill(const CRGB* activePalette, uint8_t numColors) { // Spiral fi
   }
 }
 
-void showRadarSweep() {
+void showRadarSweep(uint8_t tailLength) {
   static unsigned long lastUpdate = 0;
   static int sweepIndex = 0;
-  const uint8_t tailLength = 6; // Number of fading tail octants
-  const uint8_t fadeStep = 48;  // Amount to fade per tail step
+  // const uint8_t tailLength = 10; // Number of fading tail sectors
+  const uint8_t fadeStep = 128 / tailLength;  // Amount to fade per tail step
 
   fill_solid(leds, NUM_LEDS, CRGB::Black);
 
   // Sweep timing
-  if (millis() - lastUpdate > 200) {
+  if (millis() - lastUpdate > 175) { // 175 ms per sectorsweep
     lastUpdate = millis();
     sweepIndex = (sweepIndex + 1) % 16; // 16 sectors
     // sweepIndex = (sweepIndex - 1 + 16) % 16; // clockwise
@@ -837,7 +926,7 @@ void showRadarSweep() {
   for (int t = 1; t < tailLength; t++) { // Start at 1 so leading edge is handled separately
     int tailIdx = (sweepIndex - t + 16) % 16;
     // int tailIdx = (sweepIndex + t) % 16;
-    uint8_t brightness = 255 - (t * fadeStep);
+    uint8_t brightness = 128 - (t * fadeStep);
     CRGB color = CRGB(
       (palette[7].r * brightness) / 255,
       (palette[7].g * brightness) / 255,
@@ -856,7 +945,115 @@ void showRadarSweep() {
   FastLED.show();
 }
 
+void showDynamicFlower(int octalRotations) {
+  static int animStep = 0;
+  static unsigned long lastUpdate = 0;
+  const int curveLen = 6; // Length of each curve
+  const int petalLen = 11; // Length of each petal outline
+  const int totalSteps = 8 * petalLen; // 8 petals
+  const unsigned long animInterval = 250;  // ms between animation steps
+
+  // Clear all LEDs for outline
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+
+  // Draw all curves in color
+  for (int c = 0; c < 8; c++) {
+    int p = (c + 7) % 8;
+    CRGB color = palette[c];
+    for (int i = 0; i < curveLen; i++) {
+      leds[leftCurves[(p + octalRotations) % 8][i]] = color;
+      if (!(c == 7 && (i == 0 || i == 1))) {
+        leds[rightCurves[(c + octalRotations) % 8][i]] = color;
+      }
+    }
+  }
+
+  // Animate the black pixel
+  int phase = animStep / petalLen; // which petal
+  int pos   = animStep % petalLen; // which pixel
+  int curveIdx = (phase + octalRotations) % 8;
+
+  // Advance animation step if pos==5 
+  //  to avoid doubling the wait on the petal's inner pixel
+  if (pos == 5) {  
+    animStep = (animStep + 3) % totalSteps;
+    // Recalculate phase and pos after skipping
+    phase = animStep / petalLen;
+    pos   = animStep % petalLen;
+    curveIdx = (phase + octalRotations) % 8;
+  }
+
+  // Only update animation step if enough time has passed
+  if (millis() - lastUpdate > animInterval) {
+    lastUpdate = millis();
+    animStep = (animStep + 1) % totalSteps;
+  }
+
+  // Animate one pixel to black
+  if (pos < 6) {    // Down right curve
+    leds[rightCurves[curveIdx][(curveLen - 1 - pos) % curveLen]] = CRGB::Black;
+  } else {          // Up left curve
+    leds[leftCurves[curveIdx][(curveLen - 6 + pos) % curveLen]] = CRGB::Black;
+  }
+
+  FastLED.show();
+}
+
+void showFragileSpokes() {
+  static int erasedRadial = -1;           // Which radial is being erased/redrawn (-1 = none)
+  static int redrawStep = 0;              // Progress of redraw (0 = not started)
+  static unsigned long lastUpdate = 0;
+  const unsigned long redrawInterval = 100; // ms between redraw steps
+  const int rotationOffset = 4; // 90 degrees rotation (4 radials)
+
+  // Draw all cardinals in palette colors, except the one being erased/redrawn
+  for (int r = 0; r < 8; r++) {
+    int idx = (r * 2 + rotationOffset) % 16; // rotate by 90 degrees
+    if (erasedRadial != r) {
+      CRGB color = palette[r % 8];
+      for (int i = 0; i < radialSizes[idx]; i++) {
+        leds[radials[idx][i]] = color;
+      }
+    }
+  }
+
+  // Erase condition: on center sensor touch (debounced)
+  static bool lastDebouncedCenterState = LOW;
+  if (erasedRadial == -1 && debouncedCenterState == HIGH && lastDebouncedCenterState == LOW) {
+    erasedRadial = random(0, 8); // Pick a random cardinal (0,2,4,...14)
+    int idx = (erasedRadial * 2 + rotationOffset) % 16;
+    for (int i = 0; i < radialSizes[idx]; i++) {
+      leds[radials[idx][i]] = CRGB::Black;
+    }
+    redrawStep = 0;
+    FastLED.show();
+    lastUpdate = millis();
+    lastDebouncedCenterState = debouncedCenterState;
+    return;
+  }
+  lastDebouncedCenterState = debouncedCenterState;
+
+  // Redraw the erased radial from outside inwards
+  if (erasedRadial != -1 && millis() - lastUpdate > redrawInterval) {
+    lastUpdate = millis();
+    int idx = (erasedRadial * 2 + rotationOffset) % 16;
+    CRGB color = palette[erasedRadial % 8];
+    int len = radialSizes[idx];
+    if (redrawStep < len) {
+      leds[radials[idx][len - 1 - redrawStep]] = color;
+      redrawStep++;
+      FastLED.show();
+    } else {
+      // Done redrawing, reset for next cycle
+      erasedRadial = -1;
+    }
+  }
+}
+
+
 void loop() {
+  if (millis() - bootTime < 1000) return;
+  showFragileSpokes();
   // showBreathing();
   // showTwinkle();
   // showBlueCardinals();
@@ -865,39 +1062,21 @@ void loop() {
   // // kunterbunt happy chaos spiral:
   // showSpiralFill(yearPalette, 8); // spiralFill all colors in yearPalette
   // showSpiralFill(palette, 8);     // spiralFill first 7 colors in palette
-  showRadarSweep();
-
-  // TEMPORARY: Disable all loop functionality for setup() testing
-  static bool disableLoop = true;
-  if (disableLoop) {
-    return; // Exit loop immediately, only setup() runs
-  }
+  // showRadarSweep(7);
+  // showDynamicFlower(2); // 2 octal rotations bring White to the top
   
   // Read raw sensor states
   int adminSensorState = digitalRead(adminSensorPin);
   int centerSensorState = digitalRead(centerSensorPin);
-  int freeSensorState = digitalRead(freeSensorPin);        // Renamed from tableSensorState
-  int edgeSensorState = digitalRead(edgeSensorPin);
+  // int freeSensorState = digitalRead(freeSensorPin);
+  // int edgeSensorState = digitalRead(edgeSensorPin);
 
-  // Debouncing variables
-  static bool lastAdminState = LOW;
-  static bool lastCenterState = LOW;
-  static bool lastFreeState = LOW;     // Renamed from lastTableState
-  static bool lastEdgeState = LOW;
+  // // Turn on only the indicator for the pressed button
+  // digitalWrite(indicateYellow, freeSensorState == HIGH ? HIGH : LOW);
+  // digitalWrite(indicateGreen, adminSensorState == HIGH ? HIGH : LOW);
+  // digitalWrite(indicateBlue, centerSensorState == HIGH ? HIGH : LOW);
+  // digitalWrite(indicateWhite, edgeSensorState == HIGH ? HIGH : LOW);
   
-  static unsigned long lastAdminChange = 0;
-  static unsigned long lastCenterChange = 0;
-  static unsigned long lastFreeChange = 0;    // Renamed from lastTableChange
-  static unsigned long lastEdgeChange = 0;
-  
-  const unsigned long debounceDelay = 50; // 50ms debounce
-
-  // Debounced sensor states
-  static bool debouncedAdminState = LOW;
-  static bool debouncedCenterState = LOW;
-  static bool debouncedFreeState = LOW;    // Renamed from debouncedTableState
-  static bool debouncedEdgeState = LOW;
-
   // Admin sensor debouncing
   if (adminSensorState != lastAdminState) {
     lastAdminChange = millis();
@@ -920,52 +1099,85 @@ void loop() {
   }
   lastCenterState = centerSensorState;
 
-  // Free sensor debouncing (renamed from table sensor)
-  if (freeSensorState != lastFreeState) {
-    lastFreeChange = millis();
-  }
-  if ((millis() - lastFreeChange) > debounceDelay) {
-    if (freeSensorState != debouncedFreeState) {
-      debouncedFreeState = freeSensorState;
-    }
-  }
-  lastFreeState = freeSensorState;
-
-  // Edge sensor debouncing
-  if (edgeSensorState != lastEdgeState) {
-    lastEdgeChange = millis();
-  }
-  if ((millis() - lastEdgeChange) > debounceDelay) {
-    if (edgeSensorState != debouncedEdgeState) {
-      debouncedEdgeState = edgeSensorState;
-    }
-  }
-  lastEdgeState = edgeSensorState;
-
+  // // Free sensor debouncing (renamed from table sensor)
+  // if (freeSensorState != lastFreeState) {
+  //   lastFreeChange = millis();
+  // }
+  // if ((millis() - lastFreeChange) > debounceDelay) {
+  //   if (freeSensorState != debouncedFreeState) {
+  //     debouncedFreeState = freeSensorState;
+  //   }
+  // }
+  // lastFreeState = freeSensorState;
+  // // Edge sensor debouncing
+  // if (edgeSensorState != lastEdgeState) {
+  //   lastEdgeChange = millis();
+  // }
+  // if ((millis() - lastEdgeChange) > debounceDelay) {
+  //   if (edgeSensorState != debouncedEdgeState) {
+  //     debouncedEdgeState = edgeSensorState;
+  //   }
+  // }
+  // lastEdgeState = edgeSensorState;
+  
   // Indicator logic based on debounced sensor states
-  // Yellow on when freeSensor is High (renamed from tableSensor)
-  digitalWrite(indicateYellow, debouncedFreeState == HIGH ? HIGH : LOW);
-  
-  // Green on only when adminSensor is high
-  digitalWrite(indicateGreen, debouncedAdminState == HIGH ? HIGH : LOW);
-  
-  // White is on by default and off if any sensor is high
-  bool anySensorHigh = (debouncedAdminState == HIGH || debouncedCenterState == HIGH || 
-                       debouncedFreeState == HIGH || debouncedEdgeState == HIGH);
-  digitalWrite(indicateWhite, anySensorHigh ? LOW : HIGH);
-
   // Blue on only if centerSensor is high
   digitalWrite(indicateBlue, debouncedCenterState == HIGH ? HIGH : LOW);
+  // Green on only when adminSensor is high
+  digitalWrite(indicateGreen, debouncedAdminState == HIGH ? HIGH : LOW);
+  // White is off unless any sensor is high
+  bool anySensorHigh = (debouncedAdminState == HIGH || debouncedCenterState == HIGH 
+                        /* || debouncedFreeState == HIGH || debouncedEdgeState == HIGH */ );
+  digitalWrite(indicateWhite, anySensorHigh ? HIGH : LOW);
+  // Yellow on when freeSensor is High 
+  digitalWrite(indicateYellow, !anySensorHigh ? HIGH : LOW);
+  
 
-  // Brightness control (using debounced adminSensor)
+  // // Brightness control (using debounced adminSensor)
+  // static bool lastDebouncedAdminState = LOW;
+  // if (debouncedAdminState == HIGH && lastDebouncedAdminState == LOW) {
+  //     // Cycle to the next brightness level
+  //     brightnessIndex = (brightnessIndex + 1) % NUM_BRIGHTNESS_LEVELS;
+  //     FastLED.setBrightness(brightnessLevels[brightnessIndex]);
+  //     FastLED.show(); // Update LEDs with new brightness
+  // }
+  // lastDebouncedAdminState = debouncedAdminState;
+
+  // new Brightness control: alternate ramp up/down on each long touch
+  static bool rampUp = true; // Start with ramping up
+  static uint8_t rampBrightness = brightnessLevels[brightnessIndex];
+  const uint8_t minBrightness = 12;   // 5%
+  const uint8_t maxBrightness = 191;  // 75%
+  const uint8_t rampStep = 1;         // Change per update
+  static unsigned long lastRampUpdate = 0;
+  const unsigned long rampInterval = 40; // ms between brightness steps
   static bool lastDebouncedAdminState = LOW;
+  if (debouncedAdminState == HIGH) {
+    // Ramp brightness while held
+    if (millis() - lastRampUpdate > rampInterval) {
+      lastRampUpdate = millis();
+      if (rampUp && rampBrightness < maxBrightness) {
+        rampBrightness = (uint8_t)min((int)maxBrightness, (int)rampBrightness + (int)rampStep);
+        FastLED.setBrightness(rampBrightness);
+        FastLED.show();
+      } else if (!rampUp && rampBrightness > minBrightness) {
+        rampBrightness = (uint8_t)max((int)minBrightness, (int)rampBrightness - (int)rampStep);
+        FastLED.setBrightness(rampBrightness);
+        FastLED.show();
+      }
+    }
+  }
+  // Alternate ramp direction on each new touch
   if (debouncedAdminState == HIGH && lastDebouncedAdminState == LOW) {
-      // Cycle to the next brightness level
-      brightnessIndex = (brightnessIndex + 1) % NUM_BRIGHTNESS_LEVELS;
-      FastLED.setBrightness(brightnessLevels[brightnessIndex]);
-      FastLED.show(); // Update LEDs with new brightness
+    rampUp = !rampUp; // Switch direction each time a new touch starts
   }
   lastDebouncedAdminState = debouncedAdminState;
+
+  // TEMPORARY: Disable loop functionality after this point for testing
+  static bool disableLoop = true;
+  if (disableLoop) {
+    return; // Exit loop immediately
+  }
 
   // Effect mode cycling (using debounced centerSensor)
   static bool lastDebouncedCenterState = LOW;
@@ -976,7 +1188,7 @@ void loop() {
     altMandalaActive = false;
 
     // All off except inner circle (show Seasonal Color Wheel)
-    showSeasonalWheel();
+    showSeasonalWheel(2); // Show two Seasonal rings
 
     // Set current effect to the next mode
     currentEffect = allModes[modeIndex];
@@ -1004,31 +1216,34 @@ void loop() {
     }
 
     switch (currentEffect) {
-      case STATIC1:        showStatic1(); break;
-      case FoxyYB:         showStatic2(); break;
-      case STATIC0:        showStatic0(); break;
+      // case RadarSweep:     showRadarSweep(7); break; // 7 sectors tail length
+      case DynamicFlower:  showDynamicFlower(2); break; // 2 octal rotations bring White to the top
+      // case FlowerOutline:  showFlowerOutline(); break; // thin static
+      // case STATIC1:        showStatic1(); break;
+      // case FoxyYB:         showStatic2(); break;
+      // case STATIC0:        showStatic0(); break;
       case SpectrumPizza:  showStatic3(); break;
-      case WotY:           showWOTY(228); break; // 228 = Aug 16th
-      case BlueCardinals:  showBlueCardinals(); break;
-      case BREATHING:      showBreathing(); break;
-      case TWINKLE:        showTwinkle(); break;
-      case SeasonalWheel:  showSeasonalWheel(); break;
-      case CenterBurst:    showCenterBurst(); break;
-      case RainbowFade:    showRainbowFade(40); break; // 40 ms (slower) fade speed
-      case SpiralFill:     showSpiralFill(palette, 7); break; // normal palette excluding chartreuse
-      default:             showStatic1(); break;
+      // case WotY:           showWOTY(228); break; // 228 = Aug 16th
+      // case BlueCardinals:  showBlueCardinals(); break;
+      // case BREATHING:      showBreathing(); break;
+      // case TWINKLE:        showTwinkle(); break;
+      // case SeasonalWheel:  showSeasonalWheel(1); break;
+      // case CenterBurst:    showCenterBurst(); break;
+      // case RainbowFade:    showRainbowFade(40); break; // 40 ms (slower) fade speed
+      // case SpiralFill:     showSpiralFill(palette, 7); break; // normal palette excluding chartreuse
+      default:             showDynamicFlower(2); break;
     }
     lastEffect = currentEffect;
   } else {
     burstActive = false; // Reset burst effect state when leaving dynamic phase
-    showStatic1(); // Always show Static1 outside altMandala phase
+    showDynamicFlower(2); // Always show DynamicFlower outside altMandala phase
   }
 
-  // After 16 seconds, restore setup() state
+  // After 5 minutes, restore setup() state
   if (!mandalaActive && altMandalaActive && millis() - lastCenterTouch > DYNAMIC_PHASE_DURATION) {
     mandalaActive = true;
     altMandalaActive = false;
-    setup(); // Restore MVP mandala state
+    restoreMandalaState(); // Restore MVP mandala state
   }
 }
 
