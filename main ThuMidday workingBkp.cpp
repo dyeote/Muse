@@ -17,60 +17,77 @@ const int indicateGreen = 20;     // GPIO21 output (green indicator, renamed fro
 #define BRIGHTNESS  64
 const uint8_t brightnessLevels[] = {12, 25, 64, 191}; // 5%, 10%, 25%, 75%
 const uint8_t NUM_BRIGHTNESS_LEVELS = sizeof(brightnessLevels) / sizeof(brightnessLevels[0]);
-uint8_t brightnessIndex = 2; // Start at a reasonable default (e.g., 64)
+uint8_t brightnessIndex = 3; // Start at a reasonable default (e.g., 64)
 
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER RGB
-const unsigned long DYNAMIC_PHASE_DURATION = 300000; // 5 minutes in milliseconds
-// const unsigned long DYNAMIC_PHASE_DURATION = 30000; // 30 seconds in milliseconds
+// const unsigned long DYNAMIC_PHASE_DURATION = 300000; // 5 minutes in milliseconds
+const unsigned long DYNAMIC_PHASE_DURATION = 30000; // 30 seconds in milliseconds
 
 // --- Effect Mode Enum ---
 enum EffectMode {  /// Define the effect modes
-  STATIC0,         // Static Mode #0: Candy-corn          //
+  STATIC0,         // Static Mode #0: Candy-corn
   STATIC1,         // Static Mode #1: MVP - Minimally Viable Mandala
-  FoxyYB,          // Static Mode #2: Foxy YellowBlue     //
-  BlueCardinals,   // Blue Cardinals (semi-Dynamic)       //
-  BREATHING,       // All pixels Breathing blue (Dynamic)
-  TWINKLE,         // Twinkle random pixels (Dynamic)
-  SeasonalWheel,   // mini Seasonal Color Wheel (Static)  //
-  CenterBurst,     // Center burst (Dynamic)
-  RainbowFade,     // Rainbow fade (Dynamic)
-  SpiralFill,      // Spiral fill (Dynamic)
-  SpectrumPizza,   // Static Mode #3: Spectrum Pizza      //
+  FoxyYB,          // Static Mode #2: Foxy YellowBlue
+  BlueCardinals,   // Blue Cardinals (semi-Dynamic)
+  BREATHING,       // All pixels Breathing blue
+  TWINKLE,         // Twinkle effect for random pixels
+  SeasonalWheel,   // mini Seasonal Color Wheel (Static)
+  CenterBurst,     // Center burst effect
+  RainbowFade,     // Rainbow fade effect
+  SpiralFill,      // Spiral fill effect
+  SpectrumPizza,   // Static Mode #3: Spectrum Pizza
   WotY,            // full Wheel of the Year (Static)
   FlowerOutline,   // Flower Outline (Static)
   RadarSweep,      // Radar Sweep (Dynamic)
   DynamicFlower,   // Dynamic Flower (Dynamic) - v2's default
-  FragileSpokes,   // Fragile Spokes (Static)
-  CurvyWave,       // Curvy Wave (Dynamic)
-  LAMP,            // Lamp (Static)
-  Aperture,        // Science (Dynamic)
+  FragileSpokes    // Fragile Spokes (Static)
 };
 
 // --- Menu mode arrays ---
-const EffectMode mainModes[] = { // The chosen few
-  DynamicFlower,   // + thin dynamic (v2's default)
-  Aperture,        // - thin dynamic (I'm being so sincere)
-  CenterBurst,     // + full dynamic
-  TWINKLE,         // - thin dynamic
-  SpiralFill,      // + full dynamic
-  BREATHING,       // - full dynamic
-  RainbowFade,     // + full dynamic
+const EffectMode mainModes[] = {
+  WotY,
+  DynamicFlower,
+  TWINKLE
+  // Add your main frequently-used modes here
 };
 const uint8_t NUM_MAIN_MODES = sizeof(mainModes) / sizeof(mainModes[0]);
-const EffectMode subModes[] = { // All the rest
-  FlowerOutline,   // thin static
-  STATIC1,         // full static - Minimally Viable Mandala (v1's default)
-  RadarSweep,      // full dynamic ++
-  CurvyWave,       // thin dynamic
-  FragileSpokes,   // medium static
-  LAMP,            // full static
-  WotY,            // full static - Wheel of the Year
+const EffectMode subModes[] = {
+  FragileSpokes,
+  SpiralFill,
+  FoxyYB
+  // Add less-used modes here
 };
 const uint8_t NUM_SUB_MODES = sizeof(subModes) / sizeof(subModes[0]);
 uint8_t menuLevel = 0; // 0 = main, 1 = submenu
 uint8_t modeIndex = 0;
 EffectMode currentEffect = mainModes[0];
+
+// // Deprecated old allModes[] list:
+// const EffectMode allModes[] = {
+//   // RadarSweep,    // full dynamic
+//   // FlowerOutline, // thin static
+//   DynamicFlower, // thin dynamic
+//   // FragileSpokes, // thin static
+//   WotY,         // full static (Wheel of the Year)
+//   // BlueCardinals, // full semi-dynamic
+//   // CenterBurst,   // full dynamic
+//   // BREATHING,     // full dynamic
+//   // SpiralFill,    // full dynamic
+
+//   // STATIC0,       // full static (Candy-corn)
+//   // FoxyYB,        // full static (Foxy YellowBlue)
+//   // SpectrumPizza, // full static (Spectrum Pizza)
+  
+
+//   // STATIC1,       // full static (MVP)
+//   // SeasonalWheel, // mini static 
+//   // TWINKLE,       // mini dynamic
+//   // RainbowFade    // full dynamic
+// };
+// const uint8_t NUM_MODES = sizeof(allModes) / sizeof(allModes[0]);
+// uint8_t modeIndex = 0;
+// EffectMode currentEffect = DynamicFlower; // Start with Dynamic Flower
 
 // --- Palette definitions ---
 // Muse palette: White, Orange(Yellow), OrangeRed(Orange), Red, Magenta, Blue, Cyan, Chartreuse
@@ -388,7 +405,7 @@ static unsigned long lastAdminChange = 0;
 static unsigned long lastCenterChange = 0;
 // static unsigned long lastFreeChange = 0;
 // static unsigned long lastEdgeChange = 0;
-const unsigned long debounceDelay = 100; // 100ms debounce
+const unsigned long debounceDelay = 200; // 200ms debounce
 static bool debouncedAdminState = LOW;
 static bool debouncedCenterState = LOW;
 // static bool debouncedFreeState = LOW;
@@ -405,7 +422,6 @@ bool burstActive = false;           // Center burst effect state
 bool showingColorWheel = false;     // Seasonal Color Wheel state
 unsigned long colorWheelStart = 0;  // Timer for color wheel animation
 bool firstSpiralRun = true;         // Flag to track first run of Spiral Fill effect
-bool firstLampRun = true;           // Flag to track first run of Lamp effect
 
 // --- All effects Mode functions ---
 // Static Mode functions:
@@ -439,6 +455,7 @@ void showStatic0() { // Static Mode #0: (Something, formerly Candy-corn)
   }
   FastLED.show();
 }
+
 void showStatic1() { // Static Mode #1: (MVP - Minimally Viable Mandala)
   for (int i = 0; i < 8; i++) {
     leds[ring1[i]] = palette[0];                // White
@@ -470,6 +487,7 @@ void showStatic1() { // Static Mode #1: (MVP - Minimally Viable Mandala)
   }
   FastLED.show();
 }
+
 void showStatic2() { // Static Mode #2: (Foxy YellowBlue)
   for (int i = 0; i < 8; i++) {
     leds[innerCircle[i]] = palette[0];          // White
@@ -501,6 +519,7 @@ void showStatic2() { // Static Mode #2: (Foxy YellowBlue)
   }
   FastLED.show();
 }
+
 void showStatic3() { // Static Mode #3: Spectrum Pizza -
   // The angular octs, starting from x→axis(right),
   // arrayed counterclockwise through the color palette.
@@ -514,6 +533,7 @@ void showStatic3() { // Static Mode #3: Spectrum Pizza -
   
   FastLED.show();
 }
+
 void showWOTY(int dayOfYear) { // Wheel of the Year with 16-sector resolution
   dayOfYear = dayOfYear % 365;
   // Each sector is ~22.8 days (365/16)
@@ -530,6 +550,7 @@ void showWOTY(int dayOfYear) { // Wheel of the Year with 16-sector resolution
   }
   FastLED.show();
 }
+
 void showSeasonalWheel(int numberOfRings) { // Show the seasonal color wheel
   // All off except inner circle (showing the Seasonal Color Wheel)
   fill_solid(leds, NUM_LEDS, CRGB::Black);
@@ -550,8 +571,8 @@ void showSeasonalWheel(int numberOfRings) { // Show the seasonal color wheel
   // leds[NUM_LEDS-5] = CRGB::Red;        // Our palette 3
   FastLED.show();
 }
+
 void showFlowerOutline(int octalRotations) {  // The _split curves form a flower outline
-  fill_solid(leds, NUM_LEDS, CRGB::Black);
   for (int c = 0; c < 8; c++) {
     int p = (c + 7) % 8; // curve in the preceding octant
     CRGB color = palette[c];
@@ -567,13 +588,14 @@ void showFlowerOutline(int octalRotations) {  // The _split curves form a flower
   }
   FastLED.show();
 }
+
 void showFragileSpokes(int octalRotations) {
   static int erasedRadial = -1;           // Which radial is being erased/redrawn (-1 = none)
   static int redrawStep = 0;              // Progress of redraw (0 = not started)
   static unsigned long lastUpdate = 0;
   const unsigned long redrawInterval = 100; // ms between redraw steps
   // const int octalRotations = 2; // 90 degrees rotation (2 octants)
-  fill_solid(leds, NUM_LEDS, CRGB::Black);
+
   // Draw all cardinals in palette colors, except the one being erased/redrawn
   for (int r = 0; r < 8; r++) {
     int idx = ((r + octalRotations) * 2) % 16;
@@ -591,17 +613,57 @@ void showFragileSpokes(int octalRotations) {
     }
   }
   FastLED.show();
-}
-void showLamp() {
-  if (firstLampRun)
-  {
-    FastLED.setBrightness(255); // Full brightness
-    firstLampRun = false;
-  }
-  fill_solid(leds, NUM_LEDS, CRGB::White);
-  FastLED.show();
-}
+  // // Erase condition: on center sensor touch (debounced)
+  // static bool lastDebouncedCenterState = LOW;
+  // if (erasedRadial == -1 && debouncedCenterState == HIGH && lastDebouncedCenterState == LOW) {
+  //   erasedRadial = random(0, 8); // Pick a random cardinal (0,2,4,...14)
+  //   int octant = (erasedRadial + octalRotations) % 8;
+  //   int idx = (octant * 2) % 16;
+  //   for (int i = 0; i < radialSizes[idx]; i++) {
+  //     leds[radials[idx][i]] = CRGB::Black;
+  //   }
+  //   for (int i = 2; i <= 4; i++) {
+  //     leds[rightCurves[octant][i]] = CRGB::Black;
+  //     leds[leftCurves[(octant + 7) % 8][i]] = CRGB::Black;
+  //   }
+  //   redrawStep = 0;
+  //   FastLED.show();
+  //   lastUpdate = millis();
+  //   lastDebouncedCenterState = debouncedCenterState;
+  //   return;
+  // }
+  // lastDebouncedCenterState = debouncedCenterState;
 
+  // // Redraw the erased radial from outside inwards
+  // if (erasedRadial != -1 && millis() - lastUpdate > redrawInterval) {
+  //   lastUpdate = millis();
+  //   int octant = (erasedRadial + octalRotations) % 8;
+  //   int idx = (octant * 2) % 16;
+  //   CRGB color = palette[erasedRadial % 8]; 
+  //   // CRGB color = palette[erasedRadial % 2 + 2]; 
+  //   int len = radialSizes[idx];
+
+  //   // Redraw the main radial pixel
+  //   if (redrawStep < len) {
+  //     leds[radials[idx][len - 1 - redrawStep]] = color;
+  //   }
+
+  //   // Redraw arrowhead pixels only for the first two redraw steps
+  //   if (redrawStep >= 0 && redrawStep < 3) {
+  //     int curveIdx = 4 - redrawStep; // 4, 3 for redrawStep 0, 1
+  //     leds[rightCurves[octant][curveIdx]] = color;
+  //     leds[leftCurves[(octant + 7) % 8][curveIdx]] = color;
+  //   }
+
+  //   redrawStep++;
+  //   FastLED.show();
+
+  //   if (redrawStep >= len) {
+  //     // Done redrawing, reset for next cycle
+  //     erasedRadial = -1;
+  //   }
+  // }
+}
 // Dynamic Mode functions:
 void showBreathing() { // Breathing effect for all LEDs
   static uint8_t breathBrightness = 25; // Start with a low brightness
@@ -956,59 +1018,6 @@ void showDynamicFlower(int octalRotations) {
 
   FastLED.show();
 }
-void showCurvyWave() { // Buugeng effect with two opposite left curves
-  static unsigned long lastUpdate = 0;
-  static uint8_t wavePos = 0;
-  const unsigned long waveInterval = 200; // ms between rotations
-  fill_solid(leds, NUM_LEDS, CRGB::Black);
-  // Update position
-  if (millis() - lastUpdate > waveInterval) {
-    lastUpdate = millis();
-    wavePos = (wavePos + 1) % 8;
-  }
-  // Draw two opposite left curves in cyan
-  CRGB waveColor = CRGB::Cyan;
-  for (int i = 0; i < 6; i++) {
-    leds[leftCurves[(wavePos + 0) % 8][i]] = waveColor;
-    leds[leftCurves[(wavePos + 4) % 8][i]] = waveColor; // Opposite curve
-    // leds[leftCurves[(wavePos + 2) % 8][i]] = waveColor; // Perpendicular curve
-    // leds[leftCurves[(wavePos + 6) % 8][i]] = waveColor; // Opposite curve
-  }
-  // leds[circle7_splitRight[(wavePos + 1) % 8]] = waveColor;
-  // leds[circle7_splitRight[(wavePos + 5) % 8]] = waveColor;
-  // leds[ring1[(wavePos + 0) % 8]] = waveColor;
-  // leds[ring1[(wavePos + 4) % 8]] = waveColor;
-  // leds[ring2[(wavePos + 1) % 8]] = waveColor;
-  // leds[ring2[(wavePos + 5) % 8]] = waveColor;
-  FastLED.show();
-}
-void showAperture() { // For the good of all of us
-  static unsigned long lastUpdate = 0;
-  static uint8_t frameCount = 0;
-  static CRGB ring8Color = CRGB::Blue;
-  static CRGB ring9Color = CRGB::OrangeRed;
-
-  // Every 10 frames, randomize colors for the two outer rings
-  if (frameCount == 0 || frameCount >= 10) {
-    ring8Color = (random(2) == 0) ? CRGB::Blue : CRGB::OrangeRed;
-    ring9Color = (random(2) == 0) ? CRGB::Blue : CRGB::OrangeRed;
-    frameCount = 0;
-  }
-
-  // Update every 100 ms
-  if (millis() - lastUpdate > 100) {
-    lastUpdate = millis();
-    frameCount++;
-    fill_solid(leds, NUM_LEDS, CRGB::Black);
-    for (int i = 0; i < ringSizes[7]; i++) {
-      leds[ring8[i]] = ring8Color;
-    }
-    for (int i = 0; i < ringSizes[8]; i++) {
-      leds[ring9[i]] = ring9Color;
-    }
-    FastLED.show();
-  }
-}
 
 void restoreMandalaState() {
   showSeasonalWheel(9);
@@ -1085,13 +1094,15 @@ void setup() {
 
 // --- Main loop ---
 void loop() {
-  // if (millis() - bootTime < 1000) return;
+  if (millis() - bootTime < 1000) return;
 
   // --- loop() dev checks --
-  // showCurvyWave();
+  // showRainbowFade(40); // 40 ms transition speed
   // // kunterbunt happy chaos spiral:
   // showSpiralFill(yearPalette, 8); // spiralFill all colors in yearPalette
   // showSpiralFill(palette, 8);     // spiralFill first 7 colors in palette
+  // showRadarSweep(7);
+  // showDynamicFlower(2); // 2 octal rotations bring White to the top
   
   // Read raw sensor states
   int adminSensorState = digitalRead(adminSensorPin);
@@ -1224,32 +1235,30 @@ void loop() {
       case FragileSpokes:  showFragileSpokes(2); break; // 2 octal rotations bring White to the top
       case WotY:           showWOTY(243); break; // 243 = Aug 31th
       case TWINKLE:        showTwinkle(); break;
-      case RadarSweep:     showRadarSweep(7); break; // 7 sectors tail length
-      case FlowerOutline:  showFlowerOutline(2); break; // 2 octal rotations bring White to the top
-      case STATIC1:        showStatic1(); break;
-      case STATIC0:        showStatic0(); break;
-      case BlueCardinals:  showBlueCardinals(); break;
-      case BREATHING:      showBreathing(); break;
-      case SeasonalWheel:  showSeasonalWheel(1); break;
-      case CenterBurst:    showCenterBurst(); break;
-      case RainbowFade:    showRainbowFade(40); break; // 40 ms (slower) fade speed
+      // case RadarSweep:     showRadarSweep(7); break; // 7 sectors tail length
+      // case FlowerOutline:  showFlowerOutline(); break; // thin static
+      // case STATIC1:        showStatic1(); break;
+      // case STATIC0:        showStatic0(); break;
+      // case BlueCardinals:  showBlueCardinals(); break;
+      // case BREATHING:      showBreathing(); break;
+      // case SeasonalWheel:  showSeasonalWheel(1); break;
+      // case CenterBurst:    showCenterBurst(); break;
+      // case RainbowFade:    showRainbowFade(40); break; // 40 ms (slower) fade speed
       case SpiralFill:     showSpiralFill(palette, 7); break; // normal palette excluding chartreuse
-      case CurvyWave:      showCurvyWave(); break; // Buugeng effect with two opposite left curves
-      case LAMP:           showLamp(); break; // Lamp (Static)
-      case Aperture:       showAperture(); break; // We do what we must
       default:             showDynamicFlower(2); break;
     }
     lastEffect = currentEffect;
   } else {
     burstActive = false; // Reset burst effect state when leaving dynamic phase
-    showDynamicFlower(2); // Always show DynamicFlower outside altMandala phase
+    showStatic1(); // Always show DynamicFlower outside altMandala phase
   }
 
-  // Restore mandala state after phase duration - this never actually runs
+  // Restore mandala state after phase duration
   if (!mandalaActive && altMandalaActive && millis() - lastCenterTouch > DYNAMIC_PHASE_DURATION) {
-    mandalaActive = true; // because this is never set to false
+    mandalaActive = true;
     altMandalaActive = false;
     restoreMandalaState();
   }
 
 }
+
