@@ -2,26 +2,27 @@
 #include <FastLED.h>
 // #include <time.h>  // Add this for time functions
 
-const int adminSensorPin = 2;    // GPIO2 input 
 const int centerSensorPin = 4;   // GPIO3 input (swapped)
 // const int freeSensorPin = 3;     // GPIO4 input (swapped)
+// const int adminSensorPin = 2;    // GPIO2 input 
 // const int edgeSensorPin = 7;     // GPIO4 input (new/unused)
 
-const int indicateYellow = 8;     // GPIO8 output (yellow indicator)
-const int indicateWhite = 9;      // GPIO9 output (white indicator) 
-const int indicateBlue = 10;      // GPIO10 output (blue indicator)
-const int indicateGreen = 20;     // GPIO21 output (green indicator, renamed from indicatePin)
+// const int indicateYellow = 8;     // GPIO8 output (yellow indicator)
+// const int indicateWhite = 9;      // GPIO9 output (white indicator) 
+// const int indicateBlue = 10;      // GPIO10 output (blue indicator)
+// const int indicateGreen = 20;     // GPIO21 output (green indicator, renamed from indicatePin)
 
 #define LED_PIN     21     // GPIO20 output pin for addressable LEDs
 #define NUM_LEDS    184    // Updated total LED count; was 150 in v1 with numbers 0,1,2,3,4,37 unused
 #define BRIGHTNESS  64
-const uint8_t brightnessLevels[] = {12, 25, 64, 191}; // 5%, 10%, 25%, 75%
+const uint8_t brightnessLevels[] = {12, 25, 128, 255}; // 5%, 10%, 50%, 100%
 const uint8_t NUM_BRIGHTNESS_LEVELS = sizeof(brightnessLevels) / sizeof(brightnessLevels[0]);
-uint8_t brightnessIndex = 2; // Start at a reasonable default (e.g., 64)
+uint8_t brightnessIndex = 0; // Start at 10% brightness
 
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER RGB
 const unsigned long DYNAMIC_PHASE_DURATION = 300000; // 5 minutes in milliseconds
+// const unsigned long DYNAMIC_PHASE_DURATION = 120000; // 2 minutes in milliseconds
 // const unsigned long DYNAMIC_PHASE_DURATION = 30000; // 30 seconds in milliseconds
 
 // --- Effect Mode Enum ---
@@ -32,6 +33,7 @@ enum EffectMode {  /// Define the effect modes
   BlueCardinals,   // Blue Cardinals (semi-Dynamic)       //
   BREATHING,       // All pixels Breathing blue (Dynamic)
   TWINKLE,         // Twinkle random pixels (Dynamic)
+  GradualTwinkle,  // Staggered twinkles, spawn one at a time
   SeasonalWheel,   // mini Seasonal Color Wheel (Static)  //
   CenterBurst,     // Center burst (Dynamic)
   RainbowFade,     // Rainbow fade (Dynamic)
@@ -49,12 +51,15 @@ enum EffectMode {  /// Define the effect modes
 
 // --- Menu mode arrays ---
 const EffectMode mainModes[] = { // The chosen few
-  DynamicFlower,   // + thin dynamic (v2's default)
-  Aperture,        // - thin dynamic (I'm being so sincere)
-  CenterBurst,     // + full dynamic
-  TWINKLE,         // - thin dynamic
-  SpiralFill,      // + full dynamic
-  BREATHING,       // - full dynamic
+  WotY,            // full static - Wheel of the Year
+  GradualTwinkle,  // - thin dynamic
+  // DynamicFlower,   // + thin dynamic (v2's default)
+  // LAMP,            // full static
+  // Aperture,        // - thin dynamic (I'm being so sincere)
+  // CenterBurst,     // + full dynamic
+  // TWINKLE,         // - thin dynamic
+  // SpiralFill,      // + full dynamic
+  // BREATHING,       // - full dynamic
   RainbowFade,     // + full dynamic
 };
 const uint8_t NUM_MAIN_MODES = sizeof(mainModes) / sizeof(mainModes[0]);
@@ -354,6 +359,7 @@ void buildSectorMapping() {
     }
   }
 }
+
 // Build left and right curves for each sector:
 int leftCurves[8][6]; // 8 curves, 6 pixels each
 void buildLeftCurves() {
@@ -380,16 +386,16 @@ void buildRightCurves() {
 }
 
 // --- Debouncing variables ---
-static bool lastAdminState = LOW;
+// static bool lastAdminState = LOW;
 static bool lastCenterState = LOW;
 // static bool lastFreeState = LOW;
 // static bool lastEdgeState = LOW;
-static unsigned long lastAdminChange = 0;
+// static unsigned long lastAdminChange = 0;
 static unsigned long lastCenterChange = 0;
 // static unsigned long lastFreeChange = 0;
 // static unsigned long lastEdgeChange = 0;
 const unsigned long debounceDelay = 100; // 100ms debounce
-static bool debouncedAdminState = LOW;
+// static bool debouncedAdminState = LOW;
 static bool debouncedCenterState = LOW;
 // static bool debouncedFreeState = LOW;
 // static bool debouncedEdgeState = LOW;
@@ -397,7 +403,7 @@ static bool debouncedCenterState = LOW;
 // --- Other state variables ---
 unsigned long bootTime = 0;
 unsigned long lastCenterTouch = 0;
-bool mandalaActive = true;
+// bool mandalaActive = true;          // no longer used, replaced by altMandalaActive
 bool altMandalaActive = false;
 unsigned long lastEffectUpdate = 0;
 uint8_t effectOffset = 0;
@@ -405,7 +411,7 @@ bool burstActive = false;           // Center burst effect state
 bool showingColorWheel = false;     // Seasonal Color Wheel state
 unsigned long colorWheelStart = 0;  // Timer for color wheel animation
 bool firstSpiralRun = true;         // Flag to track first run of Spiral Fill effect
-bool firstLampRun = true;           // Flag to track first run of Lamp effect
+// bool firstLampRun = true;           // Flag to track first run of Lamp effect
 
 // --- All effects Mode functions ---
 // Static Mode functions:
@@ -593,11 +599,11 @@ void showFragileSpokes(int octalRotations) {
   FastLED.show();
 }
 void showLamp() {
-  if (firstLampRun)
-  {
-    FastLED.setBrightness(255); // Full brightness
-    firstLampRun = false;
-  }
+  // if (firstLampRun)
+  // {
+  //   FastLED.setBrightness(255); // Full brightness
+  //   firstLampRun = false;
+  // }
   fill_solid(leds, NUM_LEDS, CRGB::White);
   FastLED.show();
 }
@@ -654,6 +660,127 @@ void showTwinkle() { // Twinkle effect for random LEDs
     FastLED.show();
   }
 }
+
+void showGradualTwinkle() { // Staggered twinkle mode — spawn one twinkle at a time, each fades independently
+  // States: 0 = inactive, 1 = fading in, 2 = sustain, 3 = fading out
+  const int MAX_ACTIVE = 24;                   // max simultaneous twinkles
+  static int state[MAX_ACTIVE];
+  static int activeIndex[MAX_ACTIVE];
+  static uint8_t activeBri[MAX_ACTIVE];
+  static unsigned long lastSpawn = 0;
+  static unsigned long lastFade = 0;
+
+  const unsigned long SPAWN_INTERVAL = 200;    // ms between attempts to spawn a new twinkle
+  const unsigned long FADE_IN_INTERVAL = 50;   // ms between fade-in steps (fast)
+  const uint8_t FADE_IN_STEP = 50;             // large step for quick fade-in
+  const uint8_t SUSTAIN_LEVEL = 254;           // level to hold during sustain
+  const int SUSTAIN_TARGET = 12;               // hold about 12 sustaining twinkles concurrently
+  const unsigned long FADE_OUT_INTERVAL = 50;  // ms between fade-out steps (slow)
+  const uint8_t FADE_OUT_STEP = 3;             // small step for slow fade-out
+  
+  // init 
+  static bool initialized = false;
+  if (!initialized) {
+    initialized = true;
+    for (int i = 0; i < MAX_ACTIVE; ++i) {
+      state[i] = 0;
+      activeIndex[i] = -1;
+      activeBri[i] = 0;
+    }
+  }
+
+  unsigned long now = millis();
+
+  // Spawn a new twinkle (one at a time) in an empty slot
+  if (now - lastSpawn >= SPAWN_INTERVAL) {
+    lastSpawn = now;
+    // find empty slot
+    int slot = -1;
+    for (int i = 0; i < MAX_ACTIVE; ++i) {
+      if (state[i] == 0) { slot = i; break; }
+    }
+    if (slot != -1) {
+      // pick a random LED not already active
+      int cand = random(NUM_LEDS);
+      bool ok = true;
+      // for (int t = 0; t < 20; ++t) {
+        // ok = true;
+      for (int k = 0; k < MAX_ACTIVE; ++k) {
+        if (state[k] != 0 && activeIndex[k] == cand) { ok = false; break; }
+      }
+        // if (ok) break;
+        // cand = random(NUM_LEDS);
+      // }
+      if (ok) {
+        activeIndex[slot] = cand;
+        activeBri[slot] = 0;
+        state[slot] = 1; // start fading in
+      }
+    }
+
+    // Randomly pick one sustaining twinkle to begin fading out
+    int sustainCount = 0;
+    for (int i = 0; i < MAX_ACTIVE; ++i) if (state[i] == 2) ++sustainCount;
+    if (sustainCount > SUSTAIN_TARGET) {
+      // pick one of the sustaining twinkles to fade (same pick code as before)
+      int pick = random(sustainCount);
+      int idx = -1;
+      for (int i = 0; i < MAX_ACTIVE; ++i) {
+        if (state[i] == 2) {
+          if (pick == 0) { idx = i; break; }
+          --pick;
+        }
+      }
+      if (idx != -1) state[idx] = 3;
+    }
+  }
+
+  // Fade-in processing (fast)
+  if (now - lastFade >= FADE_IN_INTERVAL) {
+    lastFade = now;
+    for (int i = 0; i < MAX_ACTIVE; ++i) {
+      if (state[i] == 1) {
+        uint16_t nb = (uint16_t)activeBri[i] + FADE_IN_STEP;
+        if (nb >= SUSTAIN_LEVEL) {
+          activeBri[i] = SUSTAIN_LEVEL;
+          state[i] = 2; // reached sustain
+        } else {
+          activeBri[i] = (uint8_t)nb;
+        }
+      }
+    }
+  }
+
+  // Fade-out processing (slower)
+  static unsigned long lastFadeOut = 0;
+  if (now - lastFadeOut >= FADE_OUT_INTERVAL) {
+    lastFadeOut = now;
+    for (int i = 0; i < MAX_ACTIVE; ++i) {
+      if (state[i] == 3) {
+        if (activeBri[i] <= FADE_OUT_STEP) {
+          // turn off
+          activeBri[i] = 0;
+          state[i] = 0;
+          activeIndex[i] = -1;
+        } else {
+          activeBri[i] = activeBri[i] - FADE_OUT_STEP;
+        }
+      }
+    }
+  }
+
+  // Render: clear and draw active twinkles with their current brightness
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  for (int i = 0; i < MAX_ACTIVE; ++i) {
+    if (state[i] != 0 && activeIndex[i] >= 0) {
+      uint8_t b = activeBri[i];
+      // scale to a nice visible twinkle (white scaled by brightness)
+      leds[activeIndex[i]] = CRGB(b, b, b);
+    }
+  }
+  FastLED.show();
+}
+
 // revisit: make BCs dynamics more interesting
 void showBlueCardinals() { // semi-Static Mode #3: (Blue Cardinals)
   // Static blue cardinals setup
@@ -834,7 +961,6 @@ void showRainbowFade(uint16_t fadeSpeed) { // Rainbow fade effect across all rin
   }
   FastLED.show();
 }
-// Isa's opinion on chaotic spiral palette mixing : not great because 4 colors is too kunterbunt
 void showSpiralFill(const CRGB* activePalette, uint8_t numColors) { // Spiral fill effect
   static unsigned long lastUpdate = 0;
   static int colorIndex = 0;
@@ -1010,10 +1136,10 @@ void showAperture() { // For the good of all of us
   }
 }
 
-void restoreMandalaState() {
-  showSeasonalWheel(9);
-  FastLED.show();
-}
+// void restoreMandalaState() {
+//   showSeasonalWheel(9);
+//   FastLED.show();
+// }
 
 void setup() {
   bootTime = millis();
@@ -1021,19 +1147,20 @@ void setup() {
   buildSectorMapping(); // Build the sector mapping
   buildLeftCurves();
   buildRightCurves();
-  pinMode(adminSensorPin, INPUT);
+
   pinMode(centerSensorPin, INPUT);
+  // pinMode(adminSensorPin, INPUT);
   // pinMode(freeSensorPin, INPUT_PULLUP);
   // pinMode(edgeSensorPin, INPUT_PULLDOWN);
-  pinMode(indicateGreen, OUTPUT);    // Renamed from indicatePin
-  pinMode(indicateBlue, OUTPUT);
-  pinMode(indicateWhite, OUTPUT);
-  pinMode(indicateYellow, OUTPUT);
+  // pinMode(indicateGreen, OUTPUT);    // Renamed from indicatePin
+  // pinMode(indicateBlue, OUTPUT);
+  // pinMode(indicateWhite, OUTPUT);
+  // pinMode(indicateYellow, OUTPUT);
   
-  digitalWrite(indicateGreen, LOW);  // Start green off
-  digitalWrite(indicateBlue, LOW);   // Start blue off
-  digitalWrite(indicateWhite, LOW); // Start white on (default)
-  digitalWrite(indicateYellow, LOW); // Start yellow off
+  // digitalWrite(indicateGreen, LOW);  // Start green off
+  // digitalWrite(indicateBlue, LOW);   // Start blue off
+  // digitalWrite(indicateWhite, LOW); // Start white on (default)
+  // digitalWrite(indicateYellow, LOW); // Start yellow off
   
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
   FastLED.setBrightness(brightnessLevels[brightnessIndex]);
@@ -1079,7 +1206,7 @@ void setup() {
   // showStatic0(); // Show Static Mode #0 (Candy-corn)
   // showSeasonalWheel(8); // Show the Seasonal Color Wheel
   
-  showFragileSpokes(2); // Show Fragile Spokes effect with white on top
+  // showFragileSpokes(2); // Show Fragile Spokes effect with white on top
   FastLED.show();
 }
 
@@ -1094,19 +1221,19 @@ void loop() {
   // showSpiralFill(palette, 8);     // spiralFill first 7 colors in palette
   
   // Read raw sensor states
-  int adminSensorState = digitalRead(adminSensorPin);
   int centerSensorState = digitalRead(centerSensorPin);
+  // int adminSensorState = digitalRead(adminSensorPin);
   // int freeSensorState = digitalRead(freeSensorPin);
   // int edgeSensorState = digitalRead(edgeSensorPin);
 
   // --- sensors debouncing logic ---
-  // Admin sensor debouncing
-  if (adminSensorState != lastAdminState) lastAdminChange = millis();
-  if ((millis() - lastAdminChange) > debounceDelay) {
-    if (adminSensorState != debouncedAdminState) debouncedAdminState = adminSensorState;
-  }
-  lastAdminState = adminSensorState;
-
+  // // Admin sensor debouncing
+  // if (adminSensorState != lastAdminState) lastAdminChange = millis();
+  // if ((millis() - lastAdminChange) > debounceDelay) {
+  //   if (adminSensorState != debouncedAdminState) debouncedAdminState = adminSensorState;
+  // }
+  // lastAdminState = adminSensorState;
+  
   // Center sensor debouncing
   if (centerSensorState != lastCenterState) lastCenterChange = millis();
   if ((millis() - lastCenterChange) > debounceDelay) {
@@ -1114,71 +1241,78 @@ void loop() {
   }
   lastCenterState = centerSensorState;
 
-  // Indicator logic
-  digitalWrite(indicateBlue, debouncedCenterState == HIGH ? HIGH : LOW);
-  digitalWrite(indicateGreen, debouncedAdminState == HIGH ? HIGH : LOW);
-  bool anySensorHigh = (debouncedAdminState == HIGH || debouncedCenterState == HIGH);
-  digitalWrite(indicateWhite, anySensorHigh ? HIGH : LOW);
-  digitalWrite(indicateYellow, !anySensorHigh ? HIGH : LOW);
+  // // Indicator logic
+  // digitalWrite(indicateBlue, debouncedCenterState == HIGH ? HIGH : LOW);
+  // digitalWrite(indicateGreen, debouncedAdminState == HIGH ? HIGH : LOW);
+  // bool anySensorHigh = (debouncedAdminState == HIGH || debouncedCenterState == HIGH);
+  // digitalWrite(indicateWhite, anySensorHigh ? HIGH : LOW);
+  // digitalWrite(indicateYellow, !anySensorHigh ? HIGH : LOW);
   
-  // Brightness control (ramp up/down on long touch)
-  static bool rampUp = true; // Start with ramping up
-  static uint8_t rampBrightness = brightnessLevels[brightnessIndex];
-  const uint8_t minBrightness = 12;   // 5%
-  const uint8_t maxBrightness = 191;  // 75%
-  const uint8_t rampStep = 2;         // Change per update
-  static unsigned long lastRampUpdate = 0;
-  const unsigned long rampInterval = 60; // ms between brightness steps
-  static bool lastDebouncedAdminState = LOW;
-  if (debouncedAdminState == HIGH) {
-    // Ramp brightness while held
-    if (millis() - lastRampUpdate > rampInterval) {
-      lastRampUpdate = millis();
-      if (rampUp && rampBrightness < maxBrightness) {
-        rampBrightness = (uint8_t)min((int)maxBrightness, (int)rampBrightness + (int)rampStep);
-        FastLED.setBrightness(rampBrightness);
-        FastLED.show();
-      } else if (!rampUp && rampBrightness > minBrightness) {
-        rampBrightness = (uint8_t)max((int)minBrightness, (int)rampBrightness - (int)rampStep);
-        FastLED.setBrightness(rampBrightness);
-        FastLED.show();
-      }
-    }
-  }
-  // Alternate ramp direction on each new touch
-  if (debouncedAdminState == HIGH && lastDebouncedAdminState == LOW) {
-    rampUp = !rampUp; // Switch direction each time a new touch starts
-  }
-  lastDebouncedAdminState = debouncedAdminState;
+  // The old ramp-on-admin-sensor behavior has been removed.
+  // Brightness is now controlled by short-tapping the centerSensor while on menuLevel == 2.
+  // // Brightness control (ramp up/down on long touch)
+  // static bool rampUp = true; // Start with ramping up
+  // static uint8_t rampBrightness = brightnessLevels[brightnessIndex];
+  // const uint8_t minBrightness = 12;   // 5%
+  // const uint8_t maxBrightness = 255;  // 100%
+  // const uint8_t rampStep = 3;         // Change per update
+  // static unsigned long lastRampUpdate = 0;
+  // const unsigned long rampInterval = 60; // ms between brightness steps
+  // static bool lastDebouncedAdminState = LOW;
+  // if (debouncedAdminState == HIGH) {
+  //   // Ramp brightness while held
+  //   if (millis() - lastRampUpdate > rampInterval) {
+  //     lastRampUpdate = millis();
+  //     if (rampUp && rampBrightness < maxBrightness) {
+  //       rampBrightness = (uint8_t)min((int)maxBrightness, (int)rampBrightness + (int)rampStep);
+  //       FastLED.setBrightness(rampBrightness);
+  //       FastLED.show();
+  //     } else if (!rampUp && rampBrightness > minBrightness) {
+  //       rampBrightness = (uint8_t)max((int)minBrightness, (int)rampBrightness - (int)rampStep);
+  //       FastLED.setBrightness(rampBrightness);
+  //       FastLED.show();
+  //     }
+  //   }
+  // }
+  // // Alternate ramp direction on each new touch
+  // if (debouncedAdminState == HIGH && lastDebouncedAdminState == LOW) {
+  //   rampUp = !rampUp; // Switch direction each time a new touch starts
+  // }
+  // lastDebouncedAdminState = debouncedAdminState;
+  // // --- End removed brightness ramp ---
 
   // TEMPORARY: Disable loop functionality after this point for testing
   static bool disableLoop = false;
   if (disableLoop) return; // Exit loop immediately
 
-  // --- Menu switching logic ---
+  // --- Menu switching logic (now 3 menu levels: main, submenu, brightness) ---
   static unsigned long centerTouchStart = 0;
   static bool menuVisualizing = false;
   static unsigned long menuVisualizeStart = 0;
   static bool longTap = false;
 
   if (menuVisualizing) {
-    // Show the correct menu visualization
-    showSeasonalWheel(longTap ? ((menuLevel + 1) % 2 + 1) : (menuLevel + 1));
+    // Visualize current or next menu level; longTap visualizes next level
+    showSeasonalWheel(longTap ? ((menuLevel + 1) % 3 + 1) : (menuLevel + 1));
     if (millis() - menuVisualizeStart >= 1000) {
       menuVisualizing = false;
       if (longTap) {
-        // Long tap: increment menu level and reset mode
-        menuLevel = (menuLevel + 1) % 2;
+        // Long tap: increment menu level (now 3 levels) and reset modeIndex
+        menuLevel = (menuLevel + 1) % 3;
         modeIndex = 0;
-        currentEffect = (menuLevel == 0) ? mainModes[modeIndex] : subModes[modeIndex];
-      } else {
-        // Short tap: increment mode within current menu
-        if (menuLevel == 0) {
+        if (menuLevel == 0) currentEffect = mainModes[modeIndex];
+        else if (menuLevel == 1) currentEffect = subModes[modeIndex];
+        else /* menuLevel == 2 */ currentEffect = LAMP; // The brightness menu uses LAMP for visualization
+      } else {  // Short tap: different behavior depending on menu level
+        if (menuLevel == 0) { // Cycle main menu modes
           modeIndex = (modeIndex + 1) % NUM_MAIN_MODES;
           currentEffect = mainModes[modeIndex];
-        } else {
+        } else if (menuLevel == 1) {  // Cycle sub menu modes
           modeIndex = (modeIndex + 1) % NUM_SUB_MODES;
           currentEffect = subModes[modeIndex];
+        } else {  // menuLevel == 2 => brightness menu: cycle discrete brightness levels
+          // brightness is handled immediately on release (no seasonal wheel),
+          // so nothing to do here on short tap visualization end.
         }
       }
       altMandalaActive = true;
@@ -1194,19 +1328,31 @@ void loop() {
       centerTouchStart = millis();
     }
     if (!menuVisualizing && millis() - centerTouchStart > 1000) {
-      // Long tap detected: visualize next menu level
+      // Long tap detected: visualize/prepare next menu level
       menuVisualizing = true;
       menuVisualizeStart = millis();
       longTap = true;
-      showSeasonalWheel((menuLevel + 1) % 2 + 1);
+      showSeasonalWheel((menuLevel + 1) % 3 + 1);
     }
-  } else {
+  } else {  // On release: handle short tap behavior.
     if (centerTouchStart != 0 && !menuVisualizing) {
-      // Short tap detected: visualize current menu level
-      menuVisualizing = true;
-      menuVisualizeStart = millis();
-      longTap = false;
-      showSeasonalWheel(menuLevel + 1);
+      if (menuLevel == 2) {
+        // Brightness menu: do NOT show the seasonal wheel.
+        // Apply brightness change immediately so the currently-displayed mode
+        // can give visual feedback without being interrupted by the wheel.
+        brightnessIndex = (brightnessIndex + 1) % NUM_BRIGHTNESS_LEVELS;
+        FastLED.setBrightness(brightnessLevels[brightnessIndex]);
+        FastLED.show();               // immediate feedback
+        altMandalaActive = true;
+        lastCenterTouch = millis();
+        // do NOT start menuVisualizing here
+      } else {
+        // Normal short tap: visualize current menu level then handle after 1s
+        menuVisualizing = true;
+        menuVisualizeStart = millis();
+        longTap = false;
+        showSeasonalWheel(menuLevel + 1);
+      }
     }
     centerTouchStart = 0;
   }
@@ -1222,8 +1368,9 @@ void loop() {
       case FoxyYB:         showStatic2(); break;
       case SpectrumPizza:  showStatic3(); break;
       case FragileSpokes:  showFragileSpokes(2); break; // 2 octal rotations bring White to the top
-      case WotY:           showWOTY(243); break; // 243 = Aug 31th
+      case WotY:           showWOTY(304); break; // 304 = Oct 31st (Samhain)
       case TWINKLE:        showTwinkle(); break;
+      case GradualTwinkle: showGradualTwinkle(); break;
       case RadarSweep:     showRadarSweep(7); break; // 7 sectors tail length
       case FlowerOutline:  showFlowerOutline(2); break; // 2 octal rotations bring White to the top
       case STATIC1:        showStatic1(); break;
@@ -1242,14 +1389,13 @@ void loop() {
     lastEffect = currentEffect;
   } else {
     burstActive = false; // Reset burst effect state when leaving dynamic phase
-    showDynamicFlower(2); // Always show DynamicFlower outside altMandala phase
+    showGradualTwinkle(); // Always show WOTY(Samhain) outside altMandala phase
   }
 
-  // Restore mandala state after phase duration - this never actually runs
-  if (!mandalaActive && altMandalaActive && millis() - lastCenterTouch > DYNAMIC_PHASE_DURATION) {
-    mandalaActive = true; // because this is never set to false
-    altMandalaActive = false;
-    restoreMandalaState();
-  }
-
+  // // Restore mandala state after phase duration - this never actually runs
+  // if (!mandalaActive && altMandalaActive && millis() - lastCenterTouch > DYNAMIC_PHASE_DURATION) {
+  //   mandalaActive = true; // because this is never set to false
+  //   altMandalaActive = false;
+  //   restoreMandalaState();
+  // }
 }
