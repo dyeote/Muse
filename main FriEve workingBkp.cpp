@@ -12,34 +12,32 @@ const int centerSensorPin = 4;   // GPIO3 input (swapped)
 // const int indicateBlue = 10;      // GPIO10 output (blue indicator)
 // const int indicateGreen = 20;     // GPIO21 output (green indicator, renamed from indicatePin)
 
-#define LED_TYPE    WS2812B
-#define COLOR_ORDER RGB
 #define LED_PIN     21     // GPIO20 output pin for addressable LEDs
 #define NUM_LEDS    184    // Updated total LED count; was 150 in v1 with numbers 0,1,2,3,4,37 unused
 #define BRIGHTNESS  64
 const uint8_t brightnessLevels[] = {12, 25, 128, 255}; // 5%, 10%, 50%, 100%
 const uint8_t NUM_BRIGHTNESS_LEVELS = sizeof(brightnessLevels) / sizeof(brightnessLevels[0]);
-uint8_t brightnessIndex = 2; // Start at 5% brightness
+uint8_t brightnessIndex = 0; // Start at 10% brightness
 
-// const unsigned long DYNAMIC_PHASE_DURATION = 600000; // 10 minutes in milliseconds
-// const unsigned long DYNAMIC_PHASE_DURATION = 10000; // 10 seconds in milliseconds
+#define LED_TYPE    WS2812B
+#define COLOR_ORDER RGB
+const unsigned long DYNAMIC_PHASE_DURATION = 300000; // 5 minutes in milliseconds
+// const unsigned long DYNAMIC_PHASE_DURATION = 120000; // 2 minutes in milliseconds
+// const unsigned long DYNAMIC_PHASE_DURATION = 30000; // 30 seconds in milliseconds
+void (*standbyMode)() = nullptr;
 
 // --- Effect Mode Enum ---
 enum EffectMode {  /// Define the effect modes
-  STATIC0,         // Static Mode #0: formerly known as Candy-corn          //
+  STATIC0,         // Static Mode #0: Candy-corn          //
   STATIC1,         // Static Mode #1: MVP - Minimally Viable Mandala
-  CirclesWipe,     // Clockwise toggle wipe on random rings (Dynamic)
   FoxyYB,          // Static Mode #2: Foxy YellowBlue     //
-  BlueCardinals,   // Blue Cardinals (semi-Dynamic)       
+  BlueCardinals,   // Blue Cardinals (semi-Dynamic)       //
   BREATHING,       // All pixels Breathing blue (Dynamic)
   TWINKLE,         // Twinkle random pixels (Dynamic)
-  TwinkleReal,     // Staggered twinkles, spawn one at a time
-  TwinkleOrange,   // Fully random sustained twinkles (Dynamic)
+  GradualTwinkle,  // Staggered twinkles, spawn one at a time
   SeasonalWheel,   // mini Seasonal Color Wheel (Static)  //
   CenterBurst,     // Center burst (Dynamic)
-  SunBurst,        // Expand, sustain Yellow, fade uniformly (Dynamic)
   RainbowFade,     // Rainbow fade (Dynamic)
-  RainbowIn,       // Faster & inwards Rainbow fade (Dynamic)
   SpiralFill,      // Spiral fill (Dynamic)
   SpectrumPizza,   // Static Mode #3: Spectrum Pizza      //
   WotY,            // full Wheel of the Year (Static)
@@ -47,37 +45,23 @@ enum EffectMode {  /// Define the effect modes
   RadarSweep,      // Radar Sweep (Dynamic)
   DynamicFlower,   // Dynamic Flower (Dynamic) - v2's default
   FragileSpokes,   // Fragile Spokes (Static)
+  CurvyWave,       // Curvy Wave (Dynamic)
   LAMP,            // Lamp (Static)
   Aperture,        // Science (Dynamic)
-  CurvyWaves,      // Windmill (Dynamic)
 };
 
 // --- Menu mode arrays ---
 const EffectMode mainModes[] = { // The chosen few
-  RainbowIn,      // full dynamic
-  // WotY,           // full static - Wheel of the Year
-  // SunBurst,        // full dynamic
-  // CirclesWipe,     // Clockwise toggle wipe on random rings (Dynamic)
-  // FoxyYB,          // full static - Foxy YellowBlue
-  // BlueCardinals,   // full semi-dynamic
-  // TWINKLE,         // half-full dynamic
-  // TwinkleReal,    // thin dynamic
-  // TwinkleOrange,   // half-full dynamic
-  // SeasonalWheel,  // thin static
-  // STATIC0,         // Static Mode #0: formerly known as Candy-corn
-  // STATIC1,         // Static Mode #1: MVP - Minimally Viable Mandala
-  // FragileSpokes,   // Fragile Spokes (Static)
-  // Aperture,       // thin dynamic (I'm being so sincere)
-  // DynamicFlower,  // thin dynamic (v2's default)
-  // CenterBurst,     // full dynamic
-  // SpiralFill,      // full dynamic
-  // BREATHING,       // full dynamic
-  // RainbowFade,     // full dynamic
-  // SpectrumPizza,   // full static - Spectrum Pizza
-  // FlowerOutline,   // thin static
-  CurvyWaves,      // thin static
-  LAMP,            // full static - Lamp
-  RadarSweep,      // full dynamic ++
+  WotY,            // full static - Wheel of the Year
+  GradualTwinkle,  // - thin dynamic
+  // DynamicFlower,   // + thin dynamic (v2's default)
+  // LAMP,            // full static
+  Aperture,        // - thin dynamic (I'm being so sincere)
+  CenterBurst,     // + full dynamic
+  // TWINKLE,         // - thin dynamic
+  // SpiralFill,      // + full dynamic
+  // BREATHING,       // - full dynamic
+  RainbowFade,     // + full dynamic
 };
 const uint8_t NUM_MAIN_MODES = sizeof(mainModes) / sizeof(mainModes[0]);
 
@@ -85,48 +69,15 @@ const EffectMode subModes[] = { // All the rest
   FlowerOutline,   // thin static
   STATIC1,         // full static - Minimally Viable Mandala (v1's default)
   RadarSweep,      // full dynamic ++
-  CurvyWaves,      // thin static
+  CurvyWave,       // thin dynamic
   FragileSpokes,   // medium static
   LAMP,            // full static
   WotY,            // full static - Wheel of the Year
-  RainbowIn,       // full dynamic
 };
 const uint8_t NUM_SUB_MODES = sizeof(subModes) / sizeof(subModes[0]);
 uint8_t menuLevel = 0; // 0 = main, 1 = submenu
 uint8_t modeIndex = 0;
 EffectMode currentEffect = mainModes[0];
-
-// --- Dynamic phase duration helper function ---
-unsigned long getDynamicPhaseDuration() {
-  switch (currentEffect) {
-    case STATIC0:         return 60000;  // 1m
-    case STATIC1:         return 180000;  // 3m
-    case CirclesWipe:     return 300000;  // 5m
-    case FoxyYB:          return 60000;  // 1m
-    case BlueCardinals:   return 300000;  // 5m
-    case BREATHING:       return 300000;  // 5m
-    case TWINKLE:         return 300000;  // 5m
-    case TwinkleReal:     return 600000;  // 10m default
-    case TwinkleOrange:   return 450000;  // 7.5m
-    case SeasonalWheel:   return 60000;  // 1m
-    case CenterBurst:     return 180000;  // 3m
-    case SunBurst:        return 180000;  // 3m
-    case RainbowFade:     return 600000;  // 10m default
-    case RainbowIn:       return 600000;  // 10m default
-    case SpiralFill:      return 600000;  // 10m default
-    case SpectrumPizza:   return 60000;  // 1m
-    case WotY:            return 180000;  // 3m
-    case FlowerOutline:   return 180000;  // 3m
-    case RadarSweep:      return 60000;  // 1m
-    case DynamicFlower:   return 300000;  // 5m
-    case FragileSpokes:   return 180000;  // 3m
-    case CurvyWaves:      return 180000;  // 3m
-    case LAMP:            return 600000;  // 10m default
-    case Aperture:        return 600000;  // 10m default
-
-    default:              return 600000;  // 10m default
-  }
-};
 
 // --- Palette definitions ---
 // Muse palette: White, Orange(Yellow), OrangeRed(Orange), Red, Magenta, Blue, Cyan, Chartreuse
@@ -150,6 +101,7 @@ const CRGB yearPalette[8] = {
   CRGB::White, CRGB::Blue, CRGB::Chartreuse, CRGB::Cyan,
   CRGB::Orange, CRGB::Magenta, CRGB::OrangeRed, CRGB::Red
 };
+
 CRGB leds[NUM_LEDS];
 
 // --- Mapping arrays and build functions ---
@@ -188,7 +140,7 @@ const int circle6_splitRight[8] = {NUM_LEDS-85, NUM_LEDS-90, NUM_LEDS-95, NUM_LE
                                    NUM_LEDS-105, NUM_LEDS-110, NUM_LEDS-75, NUM_LEDS-80};
 const int circle6_splitLeft[8] = {NUM_LEDS-87, NUM_LEDS-92, NUM_LEDS-97, NUM_LEDS-102,
                                   NUM_LEDS-107, NUM_LEDS-112, NUM_LEDS-77, NUM_LEDS-82};
-// Circle 7: new second-to-outermost circle
+// Circle 7: new penultimate circle
 const int circle7_cardinals[8] = {52, 43, 34, 25, 16, 7, 70, 61};
 const int circle7_splitRight[8] = {50, 41, 32, 23, 14, 5, 68, 59};
 const int circle7_secondRight[8] = {48, 39, 30, 21, 12, 3, 66, 57};
@@ -413,7 +365,7 @@ const unsigned long debounceDelay = 100; // 100ms debounce
 static bool debouncedCenterState = LOW;
 
 // --- Other state variables ---
-// unsigned long bootTime = 0;
+unsigned long bootTime = 0;
 unsigned long lastCenterTouch = 0;
 // bool mandalaActive = true;          // no longer used, replaced by altMandalaActive
 bool altMandalaActive = false;
@@ -423,46 +375,7 @@ bool burstActive = false;           // Center burst effect state
 bool showingColorWheel = false;     // Seasonal Color Wheel state
 unsigned long colorWheelStart = 0;  // Timer for color wheel animation
 bool firstSpiralRun = true;         // Flag to track first run of Spiral Fill effect
-bool firstTwinkleRealRun = true;    // Flag to track first run of TwinkleReal effect
-bool firstTwinkleOrangeRun = true;  // Flag to track first run of Twinkle Orange effect
 // bool firstLampRun = true;           // Flag to track first run of Lamp effect
-static bool inFallback = false;     // Fallback mode state
-
-// Helper function to get base color for ring r, pixel index i in ring
-CRGB getBaseColor(int r, int i) {
-  if (r == 0) return palette[0]; // White
-  if (r == 1) return palette[1]; // Yellow
-  if (r == 2) {
-    if (i % 2 == 0) return palette[1]; // Yellow
-    else return palette[2]; // Orange
-  }
-  if (r == 3) {
-    if (i % 2 == 0) return palette[2]; // Orange
-    else return palette[2]; // Orange
-  }
-  if (r == 4) {
-    if (i % 3 == 0) return palette[2]; // Orange
-    else if (i % 3 == 1) return palette[3]; // Red
-    else return palette[3]; // Red
-  }
-  if (r == 5) {
-    if (i % 2 == 0) return palette[3]; // Red
-    else return palette[3]; // Red
-  }
-  if (r == 6) {
-    if (i % 3 == 0) return palette[3]; // Red
-    else if (i % 3 == 1) return palette[4]; // Magenta
-    else return palette[4]; // Magenta
-  }
-  if (r == 7) {
-    return palette[4]; // Magenta
-  }
-  if (r == 8) {
-    if (i % 4 == 0) return palette[5]; // Blue
-    else return palette[4]; // Magenta
-  }
-  return CRGB::Black; // Fallback
-}
 
 // --- All effects Mode functions ---
 // Static Mode functions:
@@ -588,7 +501,7 @@ void showWOTY(int dayOfYear) { // Wheel of the Year with 16-sector resolution
   FastLED.show();
 }
 void showSeasonalWheel(int numberOfRings) { // Show the seasonal color wheel
-  // // All off except inner circle (showing the Seasonal Color Wheel)
+  // All off except inner circle (showing the Seasonal Color Wheel)
   fill_solid(leds, NUM_LEDS, CRGB::Black);
   for (int i = 0; i < numberOfRings; i++) {
     for (int j = 0; j < 8; j++) {
@@ -624,6 +537,7 @@ void showFlowerOutline(int octalRotations) {  // The _split curves form a flower
   }
   FastLED.show();
 }
+
 // REVISIT: Fragile Spokes mode
 void showFragileSpokes(int octalRotations) { 
   static int erasedRadial = -1;           // Which radial is being erased/redrawn (-1 = none)
@@ -662,42 +576,6 @@ void showLamp() { // Lamp effect: all white at full brightness
 }
 
 // Dynamic Mode functions:
-void showCirclesWipe() {  // On base MVM- toggle pixels clockwise in random rings
-  static bool pixelToggled[184] = {false};  // Track toggled state of each pixel
-  static int currentRing = -1;              // Current ring being wiped (-1 = none)
-  static int currentPixel = 0;              // Current pixel index in the ring
-  static unsigned long lastToggle = 0;
-  const unsigned long TOGGLE_INTERVAL = 40; // 40ms between pixel toggles
-  
-  // Draw the full base pattern
-  for (int r = 0; r < 9; r++) {
-    for (int i = 0; i < ringSizes[r]; i++) {
-      leds[rings[r][i]] = getBaseColor(r, i);
-    }
-  }
-  // Turn off toggled pixels
-  for (int i = 0; i < NUM_LEDS; i++) {
-    if (pixelToggled[i]) leds[i] = CRGB::Black;
-  }
-  // Select initial ring if none
-  if (currentRing == -1) {
-    currentRing = random(9);
-    currentPixel = ringSizes[currentRing] - 1;
-  }
-  // Toggle the next pixel in the current ring
-  if (millis() - lastToggle >= TOGGLE_INTERVAL) {
-    lastToggle = millis();
-    int quarter = ringSizes[currentRing] / 4;  // Quarter turn to go from East to North
-    int pix = rings[currentRing][(currentPixel + quarter) % ringSizes[currentRing]];
-    pixelToggled[pix] = !pixelToggled[pix]; // Toggle state
-    currentPixel--; // Advance clockwise
-    if (currentPixel < 0) { // Finished this ring, select a new random ring
-      currentRing = random(9);
-      currentPixel = ringSizes[currentRing] - 1; // Start from Southern pixel
-    }
-  }
-  FastLED.show();
-}
 void showBreathing() { // Breathing effect for all LEDs
   static uint8_t breathBrightness = 25; // Start with a low brightness
   static int8_t breathDirection = 1; // Smoother step
@@ -749,7 +627,8 @@ void showTwinkle() { // Twinkle effect for random LEDs
     FastLED.show();
   }
 }
-void showTwinkleReal() { // Staggered twinkle mode — spawn one twinkle at a time, each fades independently
+
+void showGradualTwinkle() { // Staggered twinkle mode — spawn one twinkle at a time, each fades independently
   // States: 0 = inactive, 1 = fading in, 2 = sustain, 3 = fading out
   const int MAX_ACTIVE = 24;                   // max simultaneous twinkles
   static int state[MAX_ACTIVE];
@@ -766,21 +645,19 @@ void showTwinkleReal() { // Staggered twinkle mode — spawn one twinkle at a ti
   const unsigned long FADE_OUT_INTERVAL = 50;  // ms between fade-out steps (slow)
   const uint8_t FADE_OUT_STEP = 3;             // small step for slow fade-out
   
-  if (firstTwinkleRealRun) {  // Wipe clean and reset state every time switched to
-    fill_solid(leds, NUM_LEDS, CRGB::Black);
+  // init 
+  static bool initialized = false;
+  if (!initialized) {
+    initialized = true;
     for (int i = 0; i < MAX_ACTIVE; ++i) {
       state[i] = 0;
       activeIndex[i] = -1;
       activeBri[i] = 0;
     }
-    lastSpawn = millis();
-    lastFade = millis();
-    firstTwinkleRealRun = false;
-    FastLED.show();
-    return; // skip spawning on the very first frame
   }
 
   unsigned long now = millis();
+
   // Spawn a new twinkle (one at a time) in an empty slot
   if (now - lastSpawn >= SPAWN_INTERVAL) {
     lastSpawn = now;
@@ -847,185 +724,74 @@ void showTwinkleReal() { // Staggered twinkle mode — spawn one twinkle at a ti
     lastFadeOut = now;
     for (int i = 0; i < MAX_ACTIVE; ++i) {
       if (state[i] == 3) {
-        if (activeBri[i] > FADE_OUT_STEP) {
-          activeBri[i] -= FADE_OUT_STEP;
-        } else {
-          leds[activeIndex[i]] = CRGB::Black;
+        if (activeBri[i] <= FADE_OUT_STEP) {
+          // turn off
           activeBri[i] = 0;
           state[i] = 0;
           activeIndex[i] = -1;
+        } else {
+          activeBri[i] = activeBri[i] - FADE_OUT_STEP;
         }
       }
     }
   }
 
-  // Render: draw active twinkles with their current brightness
+  // Render: clear and draw active twinkles with their current brightness
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
   for (int i = 0; i < MAX_ACTIVE; ++i) {
     if (state[i] != 0 && activeIndex[i] >= 0) {
       uint8_t b = activeBri[i];
+      // scale to a nice visible twinkle (white scaled by brightness)
       leds[activeIndex[i]] = CRGB(b, b, b);
     }
   }
   FastLED.show();
 }
-void showTwinkleOrange() {  // Individually toggled warm twinkles
-  const unsigned long TOGGLE_INTERVAL = 60; // ms between toggles
-  const uint8_t FADE_IN_STEP  = 40;         // quick fade-in step
-  const uint8_t FADE_OUT_STEP = 8;          // slower fade-out step
-  const uint8_t MIN_BRI = 80;
-  const uint8_t MAX_BRI = 255;
-  const CRGB cols[4] = { CRGB::OrangeRed, CRGB::OrangeRed, CRGB::OrangeRed, CRGB::Orange }; // weighted to warmer tones
-  
-  // per-pixel state (static to persist between calls)
-  static uint8_t curBri[NUM_LEDS];
-  static uint8_t targetBri[NUM_LEDS];
-  static CRGB   targetCol[NUM_LEDS];
 
-  static unsigned long lastToggle = 0;
-  // static bool initialized = false;
+// revisit: make BCs dynamics more interesting
+void showBlueCardinals() { // semi-Static Mode #3: (Blue Cardinals)
+  // Static blue cardinals setup
+  for (int i = 0; i < 8; i++) {
+    leds[innerCircle[i]] = CRGB::Blue;
+    leds[circle2[i]] = CRGB::Blue;
+    leds[circle3_cardinals[i]] = CRGB::Blue;
+    leds[circle3_secondaries[i]] = CRGB::OrangeRed;
+    leds[circle4_cardinals[i]] = CRGB::Blue;
+    leds[circle4_secondaries[i]] = CRGB::OrangeRed;
+    
+    leds[circle5_cardinals[i]] = CRGB::Blue;
+    leds[circle5_splitRight[i]] = CRGB::Red;
+    leds[circle5_splitLeft[i]] = CRGB::Red;
+    leds[circle6_cardinals_in[i]] = CRGB::Blue;
+    leds[circle6_secondaries[i]] = CRGB::Red;
+    leds[circle6_cardinals_out[i]] = CRGB::Blue;
+    leds[circle6_splitRight[i]] = CRGB::Magenta;
+    leds[circle6_splitLeft[i]] = CRGB::Magenta;
 
-  if (firstTwinkleOrangeRun) {  // All pixel states zeroed
-    for (int i = 0; i < NUM_LEDS; ++i) {
-        curBri[i] = 0;
-        targetBri[i] = 0;
-        targetCol[i] = CRGB::Black;
-        leds[i] = CRGB::Black;
-    }
-    // FastLED.show();
-    // initialized = true;
-    firstTwinkleOrangeRun = false;
-    return; // skip toggling on the very first frame
+    leds[circle7_cardinals[i]] = CRGB::Blue;
+    leds[circle7_splitRight[i]] = CRGB::Magenta;
+    leds[circle7_secondRight[i]] = CRGB::Magenta;
+    leds[circle7_secondLeft[i]] = CRGB::Magenta;
+    leds[circle7_splitLeft[i]] = CRGB::Magenta;
+    leds[circle8_cardinals[i]] = CRGB::Blue;
+    leds[circle8_secondRight[i]] = CRGB::Magenta;
+    leds[circle8_secondaries[i]] = CRGB::Red;
+    leds[circle8_secondLeft[i]] = CRGB::Magenta;
   }
-
-  unsigned long now = millis();
-  // Possibly toggle one pixel's target state this tick
-  if (now - lastToggle >= TOGGLE_INTERVAL) {
-    lastToggle = now;
-    int idx = random(NUM_LEDS);
-    if (targetBri[idx] == 0) {  // currently off
-      // -> schedule fade-in to random color & brightness
-      targetCol[idx] = cols[random(4)];
-      targetBri[idx] = random(MIN_BRI, MAX_BRI + 1);
-    } else {  // currently on -> schedule fade-out
-      targetBri[idx] = 0;
-    }
+  // Dynamic: single magenta pixel cycling through a white ring
+  static unsigned long lastEffectUpdateBC = 0;
+  static uint8_t effectOffsetBC = 0;
+  if (millis() - lastEffectUpdateBC > 150) {
+    lastEffectUpdateBC = millis();
+    effectOffsetBC = (effectOffsetBC + 1) % 8;
   }
-
-  // Step current brightness toward target for all pixels
-  for (int i = 0; i < NUM_LEDS; ++i) {
-    if (curBri[i] < targetBri[i]) {
-      uint16_t nb = (uint16_t)curBri[i] + FADE_IN_STEP;
-      curBri[i] = (nb > targetBri[i]) ? targetBri[i] : (uint8_t)nb;
-    } else if (curBri[i] > targetBri[i]) {
-      uint8_t nb = (curBri[i] > FADE_OUT_STEP) ? curBri[i] - FADE_OUT_STEP : 0;
-      curBri[i] = (nb < targetBri[i]) ? targetBri[i] : nb;
-      if (curBri[i] == 0) targetCol[i] = CRGB::Black;
-    }
+  for (int i = 0; i < 8; i++) {
+    leds[innerCircle[i]] = CRGB::White;
   }
-
-  // Render using current per-pixel brightness (global FastLED brightness still applies)
-  for (int i = 0; i < NUM_LEDS; ++i) {
-    if (curBri[i] == 0) {
-      leds[i] = CRGB::Black;
-    } else {
-      leds[i] = CRGB(
-        (uint16_t)targetCol[i].r * curBri[i] / 255,
-        (uint16_t)targetCol[i].g * curBri[i] / 255,
-        (uint16_t)targetCol[i].b * curBri[i] / 255
-      );
-    }
-  }
-
+  leds[innerCircle[effectOffsetBC]] = CRGB::Magenta;
   FastLED.show();
 }
-void showBlueCardinals() {
-  const unsigned long now = millis();
-  const unsigned long PERIOD = 6000UL;  // 6s for one full undulation cycle
-  const float Tau = 6.28318530718f;     // avoid TWO_PI macro
-  const uint8_t MIN_BRI = 0;
-  const uint8_t MAX_BRI = 255;
 
-  fill_solid(leds, NUM_LEDS, CRGB::Black);
-
-  // // For each cardinal radial (even indices in radials[]), animate brightness along the rings (inner->outer)
-  for (int r = 0; r < 8; r++) {
-    int ridx = r * 2;                   // radial index for cardinals (0,2,4,...,14)
-    // phase moves with time; phasePerStep controls the spatial wavelength along the radial
-    float timePhase = ((now % PERIOD) / (float)PERIOD) * Tau;
-    float phasePerStep = Tau / 12.0f;  // full wave a third longer than the radial length (9)
-    
-    for (int d = 0; d < 9; d++) {
-      float phase = timePhase - d * phasePerStep; // + radialOffset;
-      float t = (sinf(phase) + 1.0f) * 0.5f; // 0..1
-      uint8_t bri = (uint8_t)(MIN_BRI + t * (MAX_BRI - MIN_BRI));
-      int pix = radials[ridx][d];
-      leds[pix] = CRGB(0, 0, bri); // blue scaled by computed brightness
-    }
-  }
-
-  // Keep non-cardinal elements static accents
-  for (int i = 0; i < 8; ++i) {
-    leds[circle3_secondaries[i]] = CRGB::Orange;
-    leds[circle4_secondaries[i]] = CRGB::Orange;
-    leds[circle5_splitRight[i]]  = CRGB::OrangeRed;
-    leds[circle5_splitLeft[i]]   = CRGB::OrangeRed;
-    leds[circle6_secondaries[i]] = CRGB::OrangeRed;
-    leds[circle6_splitRight[i]]  = CRGB::Red;
-    leds[circle6_splitLeft[i]]   = CRGB::Red;
-    leds[circle7_splitRight[i]]  = CRGB::Red;
-    leds[circle7_secondRight[i]] = CRGB::Red;
-    leds[circle7_secondLeft[i]]  = CRGB::Red;
-    leds[circle7_splitLeft[i]]   = CRGB::Red;
-    leds[circle8_secondRight[i]] = CRGB::Red;
-    leds[circle8_secondaries[i]] = CRGB::OrangeRed;
-    leds[circle8_secondLeft[i]]  = CRGB::Red;
-  }
-
-  FastLED.show();
-}
-// // old BlueCardinals original semi-static version
-// void showBlueCardinals() { // semi-Static Mode #3: (Blue Cardinals)
-//   // Static blue cardinals setup
-//   for (int i = 0; i < 8; i++) {
-//     // leds[innerCircle[i]] = CRGB::Blue;
-//     leds[circle2[i]] = CRGB::Blue;
-//     leds[circle3_cardinals[i]] = CRGB::Blue;
-//     leds[circle3_secondaries[i]] = CRGB::Orange;
-//     leds[circle4_cardinals[i]] = CRGB::Blue;
-//     leds[circle4_secondaries[i]] = CRGB::Orange;
-    
-//     leds[circle5_cardinals[i]] = CRGB::Blue;
-//     leds[circle5_splitRight[i]] = CRGB::OrangeRed;
-//     leds[circle5_splitLeft[i]] = CRGB::OrangeRed;
-//     leds[circle6_cardinals_in[i]] = CRGB::Blue;
-//     leds[circle6_secondaries[i]] = CRGB::OrangeRed;
-//     leds[circle6_cardinals_out[i]] = CRGB::Blue;
-//     leds[circle6_splitRight[i]] = CRGB::Red;
-//     leds[circle6_splitLeft[i]] = CRGB::Red;
-
-//     leds[circle7_cardinals[i]] = CRGB::Blue;
-//     leds[circle7_splitRight[i]] = CRGB::Red;
-//     leds[circle7_secondRight[i]] = CRGB::Red;
-//     leds[circle7_secondLeft[i]] = CRGB::Red;
-//     leds[circle7_splitLeft[i]] = CRGB::Red;
-//     leds[circle8_cardinals[i]] = CRGB::Blue;
-//     leds[circle8_secondRight[i]] = CRGB::Red;
-//     leds[circle8_secondaries[i]] = CRGB::OrangeRed;
-//     leds[circle8_secondLeft[i]] = CRGB::Red;
-//   }
-//   // // Dynamic: single magenta pixel cycling through a white ring
-//   // static unsigned long lastEffectUpdateBC = 0;
-//   // static uint8_t effectOffsetBC = 0;
-//   // if (millis() - lastEffectUpdateBC > 150) {
-//   //   lastEffectUpdateBC = millis();
-//   //   effectOffsetBC = (effectOffsetBC + 1) % 8;
-//   // }
-//   // for (int i = 0; i < 8; i++) {
-//   //   leds[innerCircle[i]] = CRGB::White;
-//   // }
-//   // leds[innerCircle[effectOffsetBC]] = CRGB::Magenta;
-//   FastLED.show();
-// }
 void showCenterBurst() { // Center burst effect: breathe out and in with separate pauses
   static unsigned long burstStart = 0;
   static int burstStep = 0;
@@ -1145,117 +911,8 @@ void showCenterBurst() { // Center burst effect: breathe out and in with separat
     }
   }
 }
-void showSunBurst() { // Expand all rings Orange, sustain, then uniformly fade out
-  static unsigned long burstStart = 0;
-  static int burstStep = 0;
-  static bool burstOut = true; // true = expanding, false = sustaining/fading out
-  static bool inSustain = false;
-  static bool inPause = false;
-  static unsigned long sustainStart = 0;
-  static unsigned long pauseStart = 0;
-  static uint8_t currentBrightness = 255;
 
-  const unsigned long expandInterval = 80;    // Fast expansion
-  const unsigned long sustainDuration = 4000; // 4s at full Orange
-  const unsigned long pauseDuration = 1000;   // 1s pause after fade-out
-
-  // Start burst effect
-  if (!burstActive) {
-    burstActive = true;
-    burstStart = millis();
-    burstStep = 0;
-    burstOut = true;
-    inSustain = false;
-    inPause = false;
-    currentBrightness = 255;
-    fill_solid(leds, NUM_LEDS, CRGB::Black);
-    FastLED.show();
-    return;
-  }
-
-  unsigned long now = millis();
-
-  // Pause phase (after fade-out complete)
-  if (inPause) {
-    fill_solid(leds, NUM_LEDS, CRGB::Black);
-    FastLED.show();
-
-    if (now - pauseStart >= pauseDuration) {
-      inPause = false;
-      burstOut = true;  // Reset to expanding
-      burstStep = 0;
-      burstStart = now;
-    }
-    return;
-  }
-  // Expanding phase
-  if (burstOut && !inSustain) {
-    // Draw rings up to burstStep in Orange
-    fill_solid(leds, NUM_LEDS, CRGB::Black);
-    for (int r = 0; r <= burstStep && r < 9; r++) {
-      for (int i = 0; i < ringSizes[r]; i++) {
-        leds[rings[r][i]] = CRGB::Orange;
-      }
-    }
-    FastLED.show();
-
-    // Check if time to advance
-    if (now - burstStart >= expandInterval) {
-      burstStart = now;
-      burstStep++;
-      if (burstStep >= 9) { // All rings expanded, enter sustain
-        burstStep = 8;
-        inSustain = true;
-        sustainStart = now;
-      }
-    }
-  }
-  // Sustain phase
-  else if (inSustain) {
-    // Draw all rings in Orange at full brightness
-    fill_solid(leds, NUM_LEDS, CRGB::Black);
-    for (int r = 0; r < 9; r++) {
-      for (int i = 0; i < ringSizes[r]; i++) {
-        leds[rings[r][i]] = CRGB::Orange;
-      }
-    }
-    FastLED.show();
-
-    // Check if sustain duration is over
-    if (now - sustainStart >= sustainDuration) {
-      inSustain = false;  // <-- Exit sustain phase
-      burstOut = false; // Switch to fade-out phase
-      burstStart = now;
-      currentBrightness = 255; // <-- Reset brightness for fade-out
-    }
-  }
-  // Fade-out phase
-  else if (!burstOut && !inSustain) {
-    // Draw all rings in Orange with current brightness
-    fill_solid(leds, NUM_LEDS, CRGB::Black);
-    for (int r = 0; r < 9; r++) {
-      for (int i = 0; i < ringSizes[r]; i++) {
-        leds[rings[r][i]] = CRGB::Orange;
-        leds[rings[r][i]].nscale8(currentBrightness);
-      }
-    }
-    FastLED.show();
-
-    // Fade out with adaptive step (faster at high brightness, slower at low)
-    if (now - burstStart >= expandInterval) {
-      burstStart = now;
-      uint8_t adaptiveFadeStep = map(currentBrightness, 0, 255, 6, 16); // Min 6, max 16
-      if (currentBrightness > adaptiveFadeStep) {
-        currentBrightness -= adaptiveFadeStep;
-      } else {
-        currentBrightness = 0;
-        inPause = true;        // Enter pause phase instead of ending
-        pauseStart = now;
-      }
-    }
-  }
-}
-// Rainbow Fade: The mode so nice we put it twice (fading out and fading in)
+// Isa's input on speed : both 20 and 40 have their merits
 void showRainbowFade(uint16_t fadeSpeed) { // Rainbow fade effect across all rings
   static uint8_t baseHue = 0;
   static unsigned long lastUpdate = 0;
@@ -1264,6 +921,7 @@ void showRainbowFade(uint16_t fadeSpeed) { // Rainbow fade effect across all rin
     lastUpdate = millis();
     baseHue++;
   }
+
   for (int r = 0; r < 9; r++) { // Now 9 rings
     uint8_t ringHue = baseHue - r * 28; // Adjusted spacing for 9 rings
     for (int i = 0; i < ringSizes[r]; i++) {
@@ -1272,22 +930,7 @@ void showRainbowFade(uint16_t fadeSpeed) { // Rainbow fade effect across all rin
   }
   FastLED.show();
 }
-void showRainbowIn(uint16_t fadeSpeed) { // Rainbow fade effect across all rings
-  static uint8_t baseHue = 0;
-  static unsigned long lastUpdate = 0;
-  // Update every fadeSpeed ms for smooth animation
-  if (millis() - lastUpdate > fadeSpeed) {
-    lastUpdate = millis();
-    baseHue--;
-  }
-  for (int r = 0; r < 9; r++) { // Now 9 rings
-    uint8_t ringHue = baseHue - r * 28; // Adjusted spacing for 9 rings
-    for (int i = 0; i < ringSizes[r]; i++) {
-      leds[rings[r][i]] = CHSV(ringHue, 255, 255);
-    }
-  }
-  FastLED.show();
-}
+
 void showSpiralFill(const CRGB* activePalette, uint8_t numColors) { // Spiral fill effect
   static unsigned long lastUpdate = 0;
   static int colorIndex = 0;
@@ -1409,96 +1052,73 @@ void showDynamicFlower(int octalRotations) {
 
   FastLED.show();
 }
+
+// "frog" and redo
+void showCurvyWave() { // Buugeng effect with two opposite left curves
+  static unsigned long lastUpdate = 0;
+  static uint8_t wavePos = 0;
+  const unsigned long waveInterval = 200; // ms between rotations
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  // Update position
+  if (millis() - lastUpdate > waveInterval) {
+    lastUpdate = millis();
+    wavePos = (wavePos + 1) % 8;
+  }
+  // Draw two opposite left curves in cyan
+  CRGB waveColor = CRGB::Cyan;
+  for (int i = 0; i < 6; i++) {
+    leds[leftCurves[(wavePos + 0) % 8][i]] = waveColor;
+    leds[leftCurves[(wavePos + 4) % 8][i]] = waveColor; // Opposite curve
+    // leds[leftCurves[(wavePos + 2) % 8][i]] = waveColor; // Perpendicular curve
+    // leds[leftCurves[(wavePos + 6) % 8][i]] = waveColor; // Opposite curve
+  }
+  // leds[circle7_splitRight[(wavePos + 1) % 8]] = waveColor;
+  // leds[circle7_splitRight[(wavePos + 5) % 8]] = waveColor;
+  // leds[ring1[(wavePos + 0) % 8]] = waveColor;
+  // leds[ring1[(wavePos + 4) % 8]] = waveColor;
+  // leds[ring2[(wavePos + 1) % 8]] = waveColor;
+  // leds[ring2[(wavePos + 5) % 8]] = waveColor;
+  FastLED.show();
+}
+
 void showAperture() { // For the good of all of us
   static unsigned long lastUpdate = 0;
-  const unsigned long updateInterval = 2000;
+  static uint8_t frameCount = 0;
   static CRGB ring8Color = CRGB::Blue;
   static CRGB ring9Color = CRGB::OrangeRed;
-  static bool firstRun = true;
 
-  if (firstRun || millis() - lastUpdate > updateInterval) {
-    firstRun = false;
-    lastUpdate = millis();
+  // Every 10 frames, randomize colors for the two outer rings
+  if (frameCount == 0 || frameCount >= 10) {
     ring8Color = (random(2) == 0) ? CRGB::Blue : CRGB::OrangeRed;
     ring9Color = (random(2) == 0) ? CRGB::Blue : CRGB::OrangeRed;
+    frameCount = 0;
+  }
 
+  // Update every 100 ms
+  if (millis() - lastUpdate > 100) {
+    lastUpdate = millis();
+    frameCount++;
     fill_solid(leds, NUM_LEDS, CRGB::Black);
-    // for (int i = 0; i < ringSizes[0]; i++) leds[ring1[i]] = ring9Color;
-    // for (int i = 0; i < ringSizes[1]; i++) leds[ring2[i]] = ring8Color;
-    for (int i = 0; i < ringSizes[7]; i++) leds[ring8[i]] = ring8Color;
-    for (int i = 0; i < ringSizes[8]; i++) leds[ring9[i]] = ring9Color;
+    for (int i = 0; i < ringSizes[7]; i++) {
+      leds[ring8[i]] = ring8Color;
+    }
+    for (int i = 0; i < ringSizes[8]; i++) {
+      leds[ring9[i]] = ring9Color;
+    }
     FastLED.show();
   }
-}
-void showCurvyWaves() { // Isa's Windmill
-  const unsigned long PERIOD = 2400UL;  // 2.4s for one full undulation cycle (25rpm)
-  const float Tau = 6.28318530718f;     // avoid TWO_PI macro
-  const uint8_t MIN_BRI = 5;           // Min brightness for undulation
-  const uint8_t MAX_BRI = 255;          // Max brightness for undulation
-  const uint8_t CEN_BRI = 60;           // Brightness for central ring
-  const uint8_t OUT_BRI = 100;          // Brightness for outer white pixels
-  CRGB primary = CRGB::Blue;
-  CRGB secondary = CRGB::Magenta;
-  fill_solid(leds, NUM_LEDS, CRGB::Black);
-
-  // --- central white inner ring and outer ring ---
-  for (int i = 0; i < 8; ++i) {
-    leds[ring1[i]] = CRGB::White;
-    leds[ring1[i]].nscale8(CEN_BRI); // Reduced brightness
-    leds[circle8_secondLeft[i]] = CRGB::White;
-    leds[circle8_secondLeft[i]].nscale8(OUT_BRI);
-    leds[circle7_secondLeft[i]] = CRGB::White;
-    leds[circle7_secondLeft[i]].nscale8(OUT_BRI);
-    leds[circle8_secondaries[i]] = CRGB::White;
-    leds[circle8_secondaries[i]].nscale8(OUT_BRI);
-    leds[circle7_secondRight[i]] = CRGB::White;
-    leds[circle7_secondRight[i]].nscale8(OUT_BRI);
-    leds[circle8_secondRight[i]] = CRGB::White;
-    leds[circle8_secondRight[i]].nscale8(OUT_BRI);
-  }
-
-  // Compute undulating brightness for each of the 8 curves (uniform along curve, different per curve)
-  unsigned long now = millis();
-  float timePhase = ((now % PERIOD) / (float)PERIOD) * Tau;
-  float phasePerCurve = Tau / 8.0f;  // Phase offset per curve for angular dependence
-  uint8_t curveBri[8];
-  for (int c = 0; c < 8; c++) {
-    float phase = timePhase - c * phasePerCurve;
-    float t = (sinf(phase) + 1.0f) * 0.5f; // 0..1
-    curveBri[c] = (uint8_t)(MIN_BRI + t * (MAX_BRI - MIN_BRI));
-  }
-
-  // Apply colors to left curves
-  for (int i = 0; i < 6; i++) {
-    for (int c = 0; c < 8; c++) {
-      uint8_t bri = curveBri[c];
-      if (c % 2 == 1) { // Primary curves
-        leds[leftCurves[c][i]] = CRGB(
-          (primary.r * bri) / 255,
-          (primary.g * bri) / 255,
-          (primary.b * bri) / 255
-        );
-      } else {  // Secondary curves
-        leds[leftCurves[c][i]] = CRGB(
-          (secondary.r * bri) / 255,
-          (secondary.g * bri) / 255,
-          (secondary.b * bri) / 255
-        );
-      }
-    }
-  }
-
-  FastLED.show();
 }
 
 // --- Setup ---
 void setup() {
-  // standbyMode = showStatic1; // Selected standby mode
-  // bootTime = millis();
+  standbyMode = showAperture; // Selected standby mode
+
+  bootTime = millis();
   // Serial.begin(115200); // Start serial for debugging
   buildSectorMapping(); // Build the sector mapping
   buildLeftCurves();
   buildRightCurves();
+
   pinMode(centerSensorPin, INPUT);
   // pinMode(adminSensorPin, INPUT);
   // pinMode(freeSensorPin, INPUT_PULLUP);
@@ -1507,41 +1127,64 @@ void setup() {
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
   FastLED.setBrightness(brightnessLevels[brightnessIndex]);
   FastLED.clear(); // Clear all LEDs at startup
-  FastLED.show();
 
-  // // Initial test pattern: Gold ring8, Orange ring9
-  // fill_solid(leds, NUM_LEDS, CRGB::Black);
-  // // Paint ring7
-  // for (int i = 0; i < ringSizes[6]; ++i) {
-  //   leds[ring7[i]] = CRGB::Orange;
-  // }  
-  // for (int i = 0; i < ringSizes[7]; ++i) {
-  //   leds[ring8[i]] = CRGB::Gold; // OK, Gold is nonsense, do not use it
-  // }
-  // // Paint ring9
-  // for (int i = 0; i < ringSizes[8]; ++i) {
-  //   leds[ring9[i]] = CRGB::OrangeRed;
-  // }
-  // FastLED.show();
+  FastLED.show();
 }
 
 // --- Main loop ---
 void loop() {
   // if (millis() - bootTime < 1000) return;
+
   // --- loop() dev checks --
   // showCurvyWave();
   // // kunterbunt happy chaos spiral:
   // showSpiralFill(yearPalette, 8); // spiralFill all colors in yearPalette
   // showSpiralFill(palette, 8);     // spiralFill first 7 colors in palette
   
-  // --- sensor debouncing logic ---
+  // Read raw sensor states
   int centerSensorState = digitalRead(centerSensorPin);
+
+  // --- sensors debouncing logic ---
+  // Center sensor debouncing
   if (centerSensorState != lastCenterState) lastCenterChange = millis();
   if ((millis() - lastCenterChange) > debounceDelay) {
     if (centerSensorState != debouncedCenterState) debouncedCenterState = centerSensorState;
   }
   lastCenterState = centerSensorState;
   
+  // The old ramp-on-admin-sensor behavior has been removed.
+  // Brightness is now controlled by short-tapping the centerSensor while on menuLevel == 2.
+  // // Brightness control (ramp up/down on long touch)
+  // static bool rampUp = true; // Start with ramping up
+  // static uint8_t rampBrightness = brightnessLevels[brightnessIndex];
+  // const uint8_t minBrightness = 12;   // 5%
+  // const uint8_t maxBrightness = 255;  // 100%
+  // const uint8_t rampStep = 3;         // Change per update
+  // static unsigned long lastRampUpdate = 0;
+  // const unsigned long rampInterval = 60; // ms between brightness steps
+  // static bool lastDebouncedAdminState = LOW;
+  // if (debouncedAdminState == HIGH) {
+  //   // Ramp brightness while held
+  //   if (millis() - lastRampUpdate > rampInterval) {
+  //     lastRampUpdate = millis();
+  //     if (rampUp && rampBrightness < maxBrightness) {
+  //       rampBrightness = (uint8_t)min((int)maxBrightness, (int)rampBrightness + (int)rampStep);
+  //       FastLED.setBrightness(rampBrightness);
+  //       FastLED.show();
+  //     } else if (!rampUp && rampBrightness > minBrightness) {
+  //       rampBrightness = (uint8_t)max((int)minBrightness, (int)rampBrightness - (int)rampStep);
+  //       FastLED.setBrightness(rampBrightness);
+  //       FastLED.show();
+  //     }
+  //   }
+  // }
+  // // Alternate ramp direction on each new touch
+  // if (debouncedAdminState == HIGH && lastDebouncedAdminState == LOW) {
+  //   rampUp = !rampUp; // Switch direction each time a new touch starts
+  // }
+  // lastDebouncedAdminState = debouncedAdminState;
+  // // --- End removed brightness ramp ---
+
   // TEMPORARY: Disable loop functionality after this point for testing
   static bool disableLoop = false;
   if (disableLoop) return; // Exit loop immediately
@@ -1620,14 +1263,9 @@ void loop() {
 
   // --- Effect mode cycling ---
   static EffectMode lastEffect = STATIC1;
-  if (altMandalaActive && millis() - lastCenterTouch <= getDynamicPhaseDuration()) {
-    inFallback = false; // Just entered dynamic phase so not in fallback
+  if (altMandalaActive && millis() - lastCenterTouch <= DYNAMIC_PHASE_DURATION) {
     // If we just switched to SpiralFill, reset the spiral
     if (currentEffect == SpiralFill && lastEffect != SpiralFill) firstSpiralRun = true;
-    // If we just switched to TwinkleOrange, reset the sustain
-    if (currentEffect == TwinkleOrange && lastEffect != TwinkleOrange) firstTwinkleOrangeRun = true;
-    // If we just switched to TwinkleReal, reset it
-    if (currentEffect == TwinkleReal && lastEffect != TwinkleReal) firstTwinkleRealRun = true;
 
     switch (currentEffect) {
       case DynamicFlower:  showDynamicFlower(2); break; // 2 octal rotations bring White to the top
@@ -1636,8 +1274,7 @@ void loop() {
       case FragileSpokes:  showFragileSpokes(2); break; // 2 octal rotations bring White to the top
       case WotY:           showWOTY(304); break; // 304 = Oct 31st (Samhain)
       case TWINKLE:        showTwinkle(); break;
-      case TwinkleReal:    showTwinkleReal(); break;
-      case TwinkleOrange:  showTwinkleOrange(); break;
+      case GradualTwinkle: showGradualTwinkle(); break;
       case RadarSweep:     showRadarSweep(7); break; // 7 sectors tail length
       case FlowerOutline:  showFlowerOutline(2); break; // 2 octal rotations bring White to the top
       case STATIC1:        showStatic1(); break;
@@ -1646,35 +1283,18 @@ void loop() {
       case BREATHING:      showBreathing(); break;
       case SeasonalWheel:  showSeasonalWheel(1); break;
       case CenterBurst:    showCenterBurst(); break;
-      case SunBurst:       showSunBurst(); break;
-      case RainbowFade:    showRainbowFade(40); break; // 40 ms (slower) fading out
-      case RainbowIn:      showRainbowIn(20); break; // 20 ms (faster) fading in
+      case RainbowFade:    showRainbowFade(40); break; // 40 ms (slower) fade speed
       case SpiralFill:     showSpiralFill(palette, 7); break; // normal palette excluding chartreuse
-      case CurvyWaves:     showCurvyWaves(); break; // Windmill
+      case CurvyWave:      showCurvyWave(); break; // Buugeng effect with two opposite left curves
       case LAMP:           showLamp(); break; // Lamp (Static)
       case Aperture:       showAperture(); break; // We do what we must
-      case CirclesWipe:    showCirclesWipe(); break;
-      // default:             showDynamicFlower(2); break;
-      default:             showRainbowFade(40); break;
+      default:             showDynamicFlower(2); break;
     }
     lastEffect = currentEffect;
   } else {
-    if (!inFallback) { // Flags reset on entry to fallback
-      inFallback = true;
-      burstActive = false; // Reset burst effect state when leaving dynamic phase
-      firstSpiralRun = true;
-      firstTwinkleRealRun = true;
-      firstTwinkleOrangeRun = true;
-    }
-    // Outside Active phase- Show the standby mode- 
-    // showRainbowFade(40); // Rainbow fade as standby mode
-    // showWOTY(304); // 304 = Oct 31st (Samhain)
-    // showTwinkleReal();
-    // showCenterBurst();
-    // showAperture();
-    // showCirclesWipe();
-    // showSunBurst();
-    showCurvyWaves();
+    burstActive = false; // Reset burst effect state when leaving dynamic phase
+    // Outside altMandala phase- Show the chosen standby mode or WOTY(Samhain)
+    if (standbyMode) standbyMode(); else showWOTY(304); 
   }
 
 }
