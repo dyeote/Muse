@@ -2,10 +2,8 @@
 #include <FastLED.h>
 // #include <time.h>  // Add this for time functions
 
-const int centerSensorPin = 4;   // GPIO3 input (swapped)
-// const int freeSensorPin = 3;     // GPIO4 input (swapped)
+const int centerSensorPin = 4;   // GPIO4 input
 // const int adminSensorPin = 2;    // GPIO2 input 
-// const int edgeSensorPin = 7;     // GPIO4 input (new/unused)
 
 // const int indicateYellow = 8;     // GPIO8 output (yellow indicator)
 // const int indicateWhite = 9;      // GPIO9 output (white indicator) 
@@ -19,12 +17,12 @@ const int centerSensorPin = 4;   // GPIO3 input (swapped)
 #define BRIGHTNESS  64
 const uint8_t brightnessLevels[] = {12, 25, 128, 255}; // 5%, 10%, 50%, 100%
 const uint8_t NUM_BRIGHTNESS_LEVELS = sizeof(brightnessLevels) / sizeof(brightnessLevels[0]);
-uint8_t brightnessIndex = 2; // Start at 5% brightness
+uint8_t brightnessIndex = 0; // Start at 5% brightness
 
 // const unsigned long DYNAMIC_PHASE_DURATION = 600000; // 10 minutes in milliseconds
 // const unsigned long DYNAMIC_PHASE_DURATION = 10000; // 10 seconds in milliseconds
 
-// --- Effect Mode Enum ---
+// --- Effect Mode Enum --- // 25 of them!
 enum EffectMode {  /// Define the effect modes
   STATIC0,         // Static Mode #0: formerly known as Candy-corn          //
   STATIC1,         // Static Mode #1: MVP - Minimally Viable Mandala
@@ -50,32 +48,34 @@ enum EffectMode {  /// Define the effect modes
   LAMP,            // Lamp (Static)
   Aperture,        // Science (Dynamic)
   CurvyWaves,      // Windmill (Dynamic)
+  Target           // Target (Dynamic)
 };
 
 // --- Menu mode arrays ---
 const EffectMode mainModes[] = { // The chosen few
   RainbowIn,      // full dynamic
-  // WotY,           // full static - Wheel of the Year
-  // SunBurst,        // full dynamic
-  // CirclesWipe,     // Clockwise toggle wipe on random rings (Dynamic)
-  // FoxyYB,          // full static - Foxy YellowBlue
-  // BlueCardinals,   // full semi-dynamic
-  // TWINKLE,         // half-full dynamic
-  // TwinkleReal,    // thin dynamic
-  // TwinkleOrange,   // half-full dynamic
-  // SeasonalWheel,  // thin static
-  // STATIC0,         // Static Mode #0: formerly known as Candy-corn
-  // STATIC1,         // Static Mode #1: MVP - Minimally Viable Mandala
-  // FragileSpokes,   // Fragile Spokes (Static)
-  // Aperture,       // thin dynamic (I'm being so sincere)
-  // DynamicFlower,  // thin dynamic (v2's default)
-  // CenterBurst,     // full dynamic
-  // SpiralFill,      // full dynamic
-  // BREATHING,       // full dynamic
-  // RainbowFade,     // full dynamic
-  // SpectrumPizza,   // full static - Spectrum Pizza
-  // FlowerOutline,   // thin static
-  CurvyWaves,      // thin static
+  Target,         // full dynamic
+  WotY,           // full static - Wheel of the Year
+  SunBurst,        // full dynamic
+  CirclesWipe,     // Clockwise toggle wipe on random rings (Dynamic)
+  FoxyYB,          // full static - Foxy YellowBlue
+  BlueCardinals,   // full semi-dynamic
+  TWINKLE,         // half-full dynamic
+  TwinkleReal,    // thin dynamic
+  TwinkleOrange,   // half-full dynamic
+  SeasonalWheel,  // thin static
+  STATIC0,         // Static Mode #0: formerly known as Candy-corn
+  STATIC1,         // Static Mode #1: MVP - Minimally Viable Mandala
+  FragileSpokes,   // Fragile Spokes (Static)
+  Aperture,       // thin dynamic (I'm being so sincere)
+  DynamicFlower,  // thin dynamic (v2's default)
+  CenterBurst,     // full dynamic
+  SpiralFill,      // full dynamic
+  BREATHING,       // full dynamic
+  RainbowFade,     // full dynamic
+  SpectrumPizza,   // full static - Spectrum Pizza
+  FlowerOutline,   // thin static
+  CurvyWaves,      // thin dynamic
   LAMP,            // full static - Lamp
   RadarSweep,      // full dynamic ++
 };
@@ -123,7 +123,7 @@ unsigned long getDynamicPhaseDuration() {
     case CurvyWaves:      return 180000;  // 3m
     case LAMP:            return 600000;  // 10m default
     case Aperture:        return 600000;  // 10m default
-
+    case Target:          return 180000;  // 3m
     default:              return 600000;  // 10m default
   }
 };
@@ -428,7 +428,7 @@ bool firstTwinkleOrangeRun = true;  // Flag to track first run of Twinkle Orange
 // bool firstLampRun = true;           // Flag to track first run of Lamp effect
 static bool inFallback = false;     // Fallback mode state
 
-// Helper function to get base color for ring r, pixel index i in ring
+// Helper function for CirclesWipe to get base (MVM) color for ring r, pixel index i in ring
 CRGB getBaseColor(int r, int i) {
   if (r == 0) return palette[0]; // White
   if (r == 1) return palette[1]; // Yellow
@@ -624,30 +624,23 @@ void showFlowerOutline(int octalRotations) {  // The _split curves form a flower
   }
   FastLED.show();
 }
-// REVISIT: Fragile Spokes mode
-void showFragileSpokes(int octalRotations) { 
-  static int erasedRadial = -1;           // Which radial is being erased/redrawn (-1 = none)
-  static int redrawStep = 0;              // Progress of redraw (0 = not started)
-  static unsigned long lastUpdate = 0;
-  const unsigned long redrawInterval = 100; // ms between redraw steps
-  // const int octalRotations = 2; // 90 degrees rotation (2 octants)
+void showFragileSpokes(int octalRotations) {  // Revisited, reconsidered, and left static
   fill_solid(leds, NUM_LEDS, CRGB::Black);
-  // Draw all cardinals in palette colors, except the one being erased/redrawn
-  for (int r = 0; r < 8; r++) {
+  // Draw all cardinals in palette colors
+  for (int r = 0; r < 8; r++) { 
     int idx = ((r + octalRotations) * 2) % 16;
-    if (erasedRadial != r) {
-      CRGB color = palette[r % 8];
-      // CRGB color = palette[r % 2 + 2];
-      for (int i = 0; i < radialSizes[idx]; i++) {
-        leds[radials[idx][i]] = color;
-      }
+    CRGB color = palette[r % 8];
+    for (int i = 0; i < radialSizes[idx]; i++) {
+      leds[radials[idx][i]] = color;
       // Draw the arrow curves
-      for (int i = 2; i <= 4; i++) {
+      for (int i = 1; i <= 4; i++) {
         leds[rightCurves[(r + octalRotations) % 8][i]] = color;
         leds[leftCurves[(r + octalRotations + 7) % 8][i]] = color;
-      }
+      }  
     }
   }
+  // Fix the last drawn shared pixel back to white
+  leds[leftCurves[(7 + octalRotations) % 8][1]] = palette[0];
   FastLED.show();
 }
 
@@ -1490,6 +1483,83 @@ void showCurvyWaves() { // Isa's Windmill
 
   FastLED.show();
 }
+void showTarget() { // Contracting red rings from outside inward with dimming trail
+  static int currentRing = 8; // Start from outermost ring9
+  static uint8_t ringBrightness[9] = {0};
+  static bool ringDone[9] = {false}; // Track each ring if done fading in
+  static unsigned long lastUpdate = 0;
+  const unsigned long updateInterval = 6; // ms between updates
+  const uint8_t fadeInStep = 4; // Fade-in step
+  const uint8_t triggerBrightness = 200; // Minimum brightness to trigger next ring
+  const uint8_t fadeOutStep = 4;   // Dimming step per update
+  const CRGB primaryColor = CRGB::Magenta; // Primary target color
+  const CRGB altColor = CRGB::Magenta;  // Second target color
+
+  // Start effect
+  if (!burstActive) {
+    burstActive = true;
+    currentRing = 8;
+    for (int r = 0; r < 9; r++) {
+      ringBrightness[r] = 0;
+      ringDone[r] = false;
+    }
+    ringBrightness[8] = triggerBrightness; // Outermost ring starts at trigger brightness
+    fill_solid(leds, NUM_LEDS, CRGB::Black);
+    FastLED.show();
+    return;
+  }
+
+  // Update every updateInterval
+  if (millis() - lastUpdate >= updateInterval) {
+    lastUpdate = millis();
+
+    // Fade in the current ring (if not yet full and not marked done)
+    if (!ringDone[currentRing] && ringBrightness[currentRing] < 255) {
+      ringBrightness[currentRing] = min(255, ringBrightness[currentRing] + fadeInStep);
+      if (ringBrightness[currentRing] >= 255) ringDone[currentRing] = true;
+    }
+    // Fade in any inner ring that is not yet at full brightness and not marked done
+    for (int r = currentRing + 1; r < 9; ++r) {
+      if (!ringDone[r] && ringBrightness[r] < 255 && ringBrightness[r] > 0) {
+        ringBrightness[r] = min(255, ringBrightness[r] + fadeInStep);
+        if (ringBrightness[r] >= 255) ringDone[r] = true;
+      }
+    }
+
+    // Dim all rings which finished fading in
+    for (int r = 0; r < 9; r++) {
+      if (ringDone[r] && ringBrightness[r] > fadeOutStep) {
+        ringBrightness[r] -= fadeOutStep;
+      } else if (ringDone[r]) {
+        ringBrightness[r] = 0;
+      } 
+    }
+
+    // Move to next inner ring if not at center and current ring is faded in to trigger brightness
+    if (currentRing > 0 && ringBrightness[currentRing] >= triggerBrightness) {
+      currentRing--;
+      ringBrightness[currentRing] = 0; // Start new ring at 0 for fade-in
+    } else if (currentRing == 0 && ringBrightness[currentRing] == 0) {
+      // Finished contracting, end effect
+      burstActive = false;
+    }
+  }
+
+  // Draw rings with current brightness, alternating colors
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  for (int r = 0; r < 9; r++) {
+    uint8_t b = ringBrightness[r];
+    CRGB base = (((8 - r) & 1) == 0) ? primaryColor : altColor; // outermost ring (r==8) uses primaryColor
+    for (int i = 0; i < ringSizes[r]; i++) {
+      leds[rings[r][i]] = CRGB(
+        (base.r * b) / 255,
+        (base.g * b) / 255,
+        (base.b * b) / 255
+      );
+    }
+  }
+  FastLED.show();
+}
 
 // --- Setup ---
 void setup() {
@@ -1654,6 +1724,7 @@ void loop() {
       case LAMP:           showLamp(); break; // Lamp (Static)
       case Aperture:       showAperture(); break; // We do what we must
       case CirclesWipe:    showCirclesWipe(); break;
+      case Target:         showTarget(); break;
       // default:             showDynamicFlower(2); break;
       default:             showRainbowFade(40); break;
     }
@@ -1666,7 +1737,7 @@ void loop() {
       firstTwinkleRealRun = true;
       firstTwinkleOrangeRun = true;
     }
-    // Outside Active phase- Show the standby mode- 
+    // Outside of Active phase- Show the Standby mode:
     // showRainbowFade(40); // Rainbow fade as standby mode
     // showWOTY(304); // 304 = Oct 31st (Samhain)
     // showTwinkleReal();
@@ -1674,7 +1745,9 @@ void loop() {
     // showAperture();
     // showCirclesWipe();
     // showSunBurst();
-    showCurvyWaves();
+    // showCurvyWaves();
+    // showTarget();
+    showFragileSpokes(2);
   }
 
 }
