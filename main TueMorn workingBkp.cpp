@@ -15,10 +15,9 @@ const int centerSensorPin = 4;   // GPIO4 input
 #define LED_PIN     21     // GPIO20 output pin for addressable LEDs
 #define NUM_LEDS    184    // Updated total LED count; was 150 in v1 with numbers 0,1,2,3,4,37 unused
 #define BRIGHTNESS  64
-
 const uint8_t brightnessLevels[] = {12, 25, 128, 255}; // 5%, 10%, 50%, 100%
 const uint8_t NUM_BRIGHTNESS_LEVELS = sizeof(brightnessLevels) / sizeof(brightnessLevels[0]);
-uint8_t brightnessIndex = 2; // Start at 50% brightness
+uint8_t brightnessIndex = 1; // Start at 5% brightness
 
 // const unsigned long DYNAMIC_PHASE_DURATION = 600000; // 10 minutes in milliseconds
 // const unsigned long DYNAMIC_PHASE_DURATION = 10000; // 10 seconds in milliseconds
@@ -55,33 +54,35 @@ enum EffectMode {  /// Define the effect modes
 
 // --- Menu mode arrays --- defRnbw,7+6+5,adjLamp;
 const EffectMode mainModes[] = { // Primary modes (7)
-  CenterBurst,     // full dynamic
-  Target,          // full dynamic
-  SunBurst,        // full dynamic
-  BREATHING,       // full dynamic
+  CenterBurst,     /// full dynamic
+  TwinkleReal,     /// thin dynamic
+  CurvyWaves,      /// thin semi-dynamic
   Aperture,        // thin dynamic (I'm being so sincere)
-  RainbowIn,       // full dynamic 
-  TwinkleReal,     // thin dynamic
+  Target,          // full dynamic
+  FlowerOutline,   // thin static
+  RainbowIn,       /// full dynamic 
 };
+const uint8_t NUM_MAIN_MODES = sizeof(mainModes) / sizeof(mainModes[0]);
+
 const EffectMode subModes[] = { // Secondary modes (6)
-  WotY,            // full Static - Wheel of the Year
-  BlueCardinals,   // full semi-Dynamic
-  FlowerOutline,   // thin Static
-  CurvyWaves,      // thin semi-Dynamic
-  FragileSpokes,   // thin Static
-  SpiralFill,      // full Dynamic
+  WotY,            /// full static - Wheel of the Year
+  TwinkleOrange,   /// half-full dynamic
+  BlueCardinals,   /// full semi-dynamic
+  SunBurst,        // full dynamic
+  SpiralFill,      // full dynamic
+  BREATHING,       /// full dynamic
 };
+const uint8_t NUM_SUB_MODES = sizeof(subModes) / sizeof(subModes[0]);
+
 const EffectMode tertiaryModes[] = { // Tertiary modes (5)
   WOTYRotate,      // full dynamic
-  TwinkleOrange,   // half-full dynamic
   STATIC1,         // Static Mode #1: MVP - Minimally Viable Mandala
   CirclesWipe,     // half-full dynamic
+  FragileSpokes,   // Fragile Spokes (Static)
   RadarSweep,      // full dynamic ++
 };
-
-const uint8_t NUM_MAIN_MODES = sizeof(mainModes) / sizeof(mainModes[0]);
-const uint8_t NUM_SUB_MODES = sizeof(subModes) / sizeof(subModes[0]);
 const uint8_t NUM_TERTIARY_MODES = sizeof(tertiaryModes) / sizeof(tertiaryModes[0]);
+
 uint8_t menuLevel = 0; // 0=Main, 1=sub, 2=tertiary, 3=brightnessAdj
 uint8_t modeIndex = 0;
 EffectMode currentEffect = mainModes[0];
@@ -447,9 +448,9 @@ bool burstActive = false;           // Center burst effect state
 bool showingColorWheel = false;     // Seasonal Color Wheel state
 unsigned long colorWheelStart = 0;  // Timer for color wheel animation
 bool firstSpiralRun = true;         // Flag to track first run of Spiral Fill effect
-bool firstTwinkleRealRun = true;    // Flag to track first run of TwinkleReal
-bool firstTwinkleOrangeRun = true;  // Flag to track first run of Twinkle Orange
-bool firstWOTYRotateRun = true;     // Flag to track first run of WOTY Rotate
+bool firstTwinkleRealRun = true;    // Flag to track first run of TwinkleReal effect
+bool firstTwinkleOrangeRun = true;  // Flag to track first run of Twinkle Orange effect
+// bool firstLampRun = true;           // Flag to track first run of Lamp effect
 static bool inFallback = false;     // Fallback mode state
 
 // Helper function for CirclesWipe to get base (MVM) color for ring r, pixel index i in ring
@@ -616,7 +617,7 @@ void showSeasonalWheel(int numberOfRings) { // Show the seasonal color wheel
   fill_solid(leds, NUM_LEDS, CRGB::Black);
   for (int i = 0; i < numberOfRings; i++) {
     for (int j = 0; j < 8; j++) {
-      CRGB color = yearPalette[(9 - j) % 8]; // Use the Wheel of the Year's palette
+      CRGB color = yearPalette[(10 - j) % 8]; // Use the Wheel of the Year's palette
       leds[radials[j*2][i]] = color;
     }
   }
@@ -1643,14 +1644,9 @@ void showTarget() { // Contracting red rings from outside inward with dimming tr
 // }
 void showWOTYRotate() {
   static unsigned long lastUpdate = 0;
-  static uint8_t rotationOffset = 14; // Start with Samhain at the top
+  static uint8_t rotationOffset = 14; // Start with Samhain at top
   const unsigned long updateInterval = 750; // 750ms between rotations
   
-  if (firstWOTYRotateRun) {  // On function call: reset to Samhain at the top
-    rotationOffset = 14;
-    firstWOTYRotateRun = false;
-  }
-
   if (millis() - lastUpdate >= updateInterval) {
     lastUpdate = millis();
     rotationOffset = (rotationOffset - 1) % 16; // Rotate by one sector
@@ -1823,18 +1819,12 @@ void loop() {
   static EffectMode lastEffect = STATIC1;
   if (altMandalaActive && millis() - lastCenterTouch <= getDynamicPhaseDuration()) {
     inFallback = false; // Just entered dynamic phase so not in fallback
-    // Reset the burst effects if we just switched to one of the burst modes
-    if ((currentEffect == CenterBurst && lastEffect != CenterBurst) ||
-        (currentEffect == SunBurst && lastEffect != SunBurst) ||
-        (currentEffect == Target && lastEffect != Target)) burstActive = false;
     // If we just switched to SpiralFill, reset the spiral
     if (currentEffect == SpiralFill && lastEffect != SpiralFill) firstSpiralRun = true;
     // If we just switched to TwinkleOrange, reset the sustain
     if (currentEffect == TwinkleOrange && lastEffect != TwinkleOrange) firstTwinkleOrangeRun = true;
     // If we just switched to TwinkleReal, reset it
     if (currentEffect == TwinkleReal && lastEffect != TwinkleReal) firstTwinkleRealRun = true;
-    // If we just switched to WOTYRotate, reset it
-    if (currentEffect == WOTYRotate && lastEffect != WOTYRotate) firstWOTYRotateRun = true;
 
     switch (currentEffect) {
       case DynamicFlower:  showDynamicFlower(2); break; // 2 octal rotations bring White to the top
@@ -1854,7 +1844,6 @@ void loop() {
       case BREATHING:      showBreathing(); break;
       case SeasonalWheel:  showSeasonalWheel(1); break;
       case CenterBurst:    showCenterBurst(); break;
-      case Target:         showTarget(); break;
       case SunBurst:       showSunBurst(); break;
       case RainbowOut:     showRainbowOut(40); break; // 40 ms (slower) fading out
       case RainbowIn:      showRainbowIn(20); break; // 20 ms (faster) fading in
@@ -1862,7 +1851,8 @@ void loop() {
       case CurvyWaves:     showCurvyWaves(); break; // Windmill
       case LAMP:           showLamp(); break; // Lamp (Static)
       case Aperture:       showAperture(); break; // We do what we must
-      case CirclesWipe:    showCirclesWipe(); break; 
+      case CirclesWipe:    showCirclesWipe(); break;
+      case Target:         showTarget(); break; 
       // default:             showDynamicFlower(2); break;
       default:             showRainbowOut(40); break;
     }
@@ -1874,11 +1864,10 @@ void loop() {
       firstSpiralRun = true;
       firstTwinkleRealRun = true;
       firstTwinkleOrangeRun = true;
-      firstWOTYRotateRun = true;
     }
     // Outside of Active phase- Show the Standby mode:
     showRainbowOut(40); // Rainbow fade as standby mode
     // showWOTY(304); // 304 = Oct 31st (Samhain)
+    // showWOTYRotate();
   }
-
 }
