@@ -13,7 +13,7 @@ const int relayButtonPin = 10;    // GPIO10 input
 #define BRIGHTNESS  64
 const uint8_t brightnessLevels[] = {12, 25, 128, 255}; // 5%, 10%, 50%, 100%
 const uint8_t NUM_BRIGHTNESS_LEVELS = sizeof(brightnessLevels) / sizeof(brightnessLevels[0]);
-uint8_t brightnessIndex = 1; // Start at 10% brightness
+uint8_t brightnessIndex = 1; // Start at 5% brightness
 
 // --- Effect Mode Enum --- // 26 of them! 18+2 active + 9 combos
 enum EffectMode {  /// Define the effect modes
@@ -52,27 +52,19 @@ enum EffectMode {  /// Define the effect modes
   SunTarget,           // SunBurst + Target(Magenta)
   IsasFireworks,       // Aperture + Target(Magenta) + CenterBurst + TwinkleReal
   KunterbuntSpiral,    // SpiralFill(yearPalette) + SpiralFill(palette)
-  StargateSG1,         // Aperture + Target(Cyan)
-  LateEotT             // Target(OrangeRed) + Breathing
+  StargateSG1          // Aperture + Target(Cyan)
 };
 
 // --- Menu mode arrays --- defRnbw,7+6+5,adjLamp;
 const EffectMode mainModes[] = { // Primary modes (7)
   CenterBurst,     // full dynamic
   Target,          // full dynamic
-  // SunBurst,        // full dynamic
-  // BREATHING,       // full dynamic
-  // Aperture,        // thin dynamic (I'm being so sincere)
-  // RainbowIn,       // full dynamic 
-  // RainbowOut,      // full dynamic
-  // TwinkleReal,     // thin dynamic
-  // New combos
-  SnowyWinterSolstice, // WOTY + TwinkleReal
-  TwinkleOrange,   // half-full dynamic
-
-  CoolPinwheel,        // CurvyWaves + Target(Cyan)
-  SparkInvaders,       // RadarSweep + TwinkleOrange  
-  // LateEotT,            // Target(OrangeRed) + Breathing
+  SunBurst,        // full dynamic
+  BREATHING,       // full dynamic
+  Aperture,        // thin dynamic (I'm being so sincere)
+  RainbowIn,       // full dynamic 
+  RainbowOut,      // full dynamic
+  TwinkleReal,     // thin dynamic
 };
 
 const EffectMode subModes[] = { // Secondary modes (6)
@@ -100,7 +92,6 @@ const EffectMode tertiaryModes[] = { // Tertiary modes (5 + 9 = 14)
   // KunterbuntSpiral,    // SpiralFill(yearPalette) + SpiralFill(palette)
   StargateSG1,         // Aperture + Target(Cyan)
   SparkInvaders,       // RadarSweep + TwinkleOrange 
-  LateEotT,            // Target(OrangeRed) + Breathing
 };
 
 const uint8_t NUM_MAIN_MODES = sizeof(mainModes) / sizeof(mainModes[0]);
@@ -110,7 +101,7 @@ uint8_t menuLevel = 0; // 0=Main, 1=sub, 2=tertiary, 3=brightnessAdj
 uint8_t modeIndex = 0;
 EffectMode currentEffect = mainModes[0];
 
-// Helper function for getting the timeout value for the current effect
+// --- Dynamic phase duration helper function ---
 unsigned long getDynamicPhaseDuration() {
   switch (currentEffect) {
     case STATIC0:         return 60000;  // 1m
@@ -149,7 +140,6 @@ unsigned long getDynamicPhaseDuration() {
     case IsasFireworks:       return 60000;  // 1m
     case KunterbuntSpiral:    return 180000;  // 3m
     case StargateSG1:         return 300000;  // 5m
-    case LateEotT:            return 300000;  // 5m
 
     default:              return 600000;  // 10m default
   }
@@ -447,32 +437,17 @@ static bool debouncedRelayState = HIGH;
 unsigned long lastTouch = 0;
 // bool mandalaActive = true;          // no longer used, replaced by altMandalaActive
 bool altMandalaActive = false;
-
 static bool burstActiveCenter = false;  // Period flag for CenterBurst
 static bool burstActiveSun = false;     // Period flag for SunBurst
 static bool burstActiveTarget = false;  // Period flag for Target
-// bool showingColorWheel = false;     // Seasonal Color Wheel state
-// unsigned long colorWheelStart = 0;  // Timer for color wheel animation
+bool showingColorWheel = false;     // Seasonal Color Wheel state
+unsigned long colorWheelStart = 0;  // Timer for color wheel animation
 bool firstSpiralRun = true;         // Flag to track first run of Spiral Fill effect
 bool firstTwinkleRealRun = true;    // Flag to track first run of TwinkleReal
 bool firstTwinkleOrangeRun = true;  // Flag to track first run of Twinkle Orange
 bool firstWOTYRotateRun = true;     // Flag to track first run of WOTY Rotate
 bool firstApertureRun = true;       // Flag to track first run of Aperture effect
-
 static bool inFallback = false;     // Fallback mode state
-
-// Helper function for resetting flags when switching modes or falling back to default
-void ModeSwitchFlagsReset() {
-  burstActiveCenter = false;
-  burstActiveSun = false;
-  burstActiveTarget = false;
-
-  firstSpiralRun = true;
-  firstTwinkleRealRun = true;
-  firstTwinkleOrangeRun = true;
-  firstWOTYRotateRun = true;
-  firstApertureRun = true;
-}
 
 // Helper function for CirclesWipe to get base (MVM) color for ring r, pixel index i in ring
 CRGB getBaseColor(int r, int i) {
@@ -913,28 +888,30 @@ void showTwinkleReal() { // Staggered twinkle mode — spawn one twinkle at a ti
   FastLED.show();
 }
 void showTwinkleOrange() {  // Individually toggled warm twinkles
-  const unsigned long TOGGLE_INTERVAL = 80; // ms between toggles
+  const unsigned long TOGGLE_INTERVAL = 60; // ms between toggles
   const uint8_t FADE_IN_STEP  = 40;         // quick fade-in step
-  const uint8_t FADE_OUT_STEP = 1;          // slower fade-out step
-  const uint8_t MIN_BRI = 120;
+  const uint8_t FADE_OUT_STEP = 8;          // slower fade-out step
+  const uint8_t MIN_BRI = 80;
   const uint8_t MAX_BRI = 255;
-  const CRGB cols[4] = { CRGB::OrangeRed, CRGB::OrangeRed, CRGB::OrangeRed, CRGB::DarkOrange }; // weighted to warmer tones
+  const CRGB cols[4] = { CRGB::OrangeRed, CRGB::OrangeRed, CRGB::OrangeRed, CRGB::Orange }; // weighted to warmer tones
   
   // per-pixel state (static to persist between calls)
-  static uint8_t currBri[NUM_LEDS];
+  static uint8_t curBri[NUM_LEDS];
   static uint8_t targetBri[NUM_LEDS];
-  static CRGB targetCol[NUM_LEDS];
+  static CRGB   targetCol[NUM_LEDS];
 
   static unsigned long lastToggle = 0;
   // static bool initialized = false;
 
   if (firstTwinkleOrangeRun) {  // All pixel states zeroed
     for (int i = 0; i < NUM_LEDS; ++i) {
-        currBri[i] = 0;
+        curBri[i] = 0;
         targetBri[i] = 0;
         targetCol[i] = CRGB::Black;
         leds[i] = CRGB::Black;
     }
+    // FastLED.show();
+    // initialized = true;
     firstTwinkleOrangeRun = false;
     return; // skip toggling on the very first frame
   }
@@ -944,7 +921,7 @@ void showTwinkleOrange() {  // Individually toggled warm twinkles
   if (now - lastToggle >= TOGGLE_INTERVAL) {
     lastToggle = now;
     int idx = random(NUM_LEDS);
-    if (currBri[idx] == 0) {  // currently off
+    if (targetBri[idx] == 0) {  // currently off
       // -> schedule fade-in to random color & brightness
       targetCol[idx] = cols[random(4)];
       targetBri[idx] = random(MIN_BRI, MAX_BRI + 1);
@@ -955,23 +932,26 @@ void showTwinkleOrange() {  // Individually toggled warm twinkles
 
   // Step current brightness toward target for all pixels
   for (int i = 0; i < NUM_LEDS; ++i) {
-    if (currBri[i] < targetBri[i]) {
-      uint16_t nb = (uint16_t)currBri[i] + FADE_IN_STEP;
-      currBri[i] = (nb > targetBri[i]) ? targetBri[i] : (uint8_t)nb;
-    } else if (currBri[i] > targetBri[i]) {
-      uint8_t nb = (currBri[i] > FADE_OUT_STEP) ? currBri[i] - FADE_OUT_STEP : 0;
-      currBri[i] = (nb < targetBri[i]) ? targetBri[i] : nb;
-      if (currBri[i] == 0) targetCol[i] = CRGB::Black;
+    if (curBri[i] < targetBri[i]) {
+      uint16_t nb = (uint16_t)curBri[i] + FADE_IN_STEP;
+      curBri[i] = (nb > targetBri[i]) ? targetBri[i] : (uint8_t)nb;
+    } else if (curBri[i] > targetBri[i]) {
+      uint8_t nb = (curBri[i] > FADE_OUT_STEP) ? curBri[i] - FADE_OUT_STEP : 0;
+      curBri[i] = (nb < targetBri[i]) ? targetBri[i] : nb;
+      if (curBri[i] == 0) targetCol[i] = CRGB::Black;
     }
   }
 
   // Render using current per-pixel brightness (global FastLED brightness still applies)
   for (int i = 0; i < NUM_LEDS; ++i) {
-    if (currBri[i] == 0) {
+    if (curBri[i] == 0) {
       leds[i] = CRGB::Black;
     } else {
-      leds[i] = targetCol[i];
-      leds[i].nscale8(currBri[i]);
+      leds[i] = CRGB(
+        (uint16_t)targetCol[i].r * curBri[i] / 255,
+        (uint16_t)targetCol[i].g * curBri[i] / 255,
+        (uint16_t)targetCol[i].b * curBri[i] / 255
+      );
     }
   }
 
@@ -1106,11 +1086,14 @@ void showCenterBurst() { // Center burst effect: breathe out and in with separat
   // Draw rings with current brightness (manual scaling)
   fill_solid(leds, NUM_LEDS, CRGB::Black);
   for (int r = 0; r < 9; r++) {
-    // uint8_t b = ringBrightness[r];
-    CRGB base = palette[ringPalette[r]];
+    uint8_t b = ringBrightness[r];
     for (int i = 0; i < ringSizes[r]; i++) {
-      leds[rings[r][i]] = base;
-      leds[rings[r][i]].nscale8(ringBrightness[r]);
+      CRGB base = palette[ringPalette[r]];
+      leds[rings[r][i]] = CRGB(
+        (base.r * b) / 255,
+        (base.g * b) / 255,
+        (base.b * b) / 255
+      );
     }
   }
   FastLED.show();
@@ -1247,79 +1230,6 @@ void showSunBurst() { // Expand all rings Orange, sustain, then uniformly fade o
       }
     }
   }
-}
-void showTarget(CRGB inputColor) { // Contracting red rings from outside inward with dimming trail
-  static int currentRing = 8; // Start from outermost ring9
-  static uint8_t ringBrightness[9] = {0};
-  static bool ringDone[9] = {false}; // Track each ring if done fading in
-  static unsigned long lastUpdate = 0;
-  const unsigned long updateInterval = 6; // ms between updates
-  const uint8_t fadeInStep = 4; // Fade-in step
-  const uint8_t triggerBrightness = 200; // Minimum brightness to trigger next ring
-  const uint8_t fadeOutStep = 4;   // Dimming step per update
-
-  // Start effect
-  if (!burstActiveTarget) {
-    burstActiveTarget = true;
-    currentRing = 8;
-    for (int r = 0; r < 9; r++) {
-      ringBrightness[r] = 0;
-      ringDone[r] = false;
-    }
-    ringBrightness[8] = triggerBrightness; // Outermost ring starts at trigger brightness
-    fill_solid(leds, NUM_LEDS, CRGB::Black);
-    FastLED.show();
-    return;
-  }
-
-  // Update every updateInterval
-  if (millis() - lastUpdate >= updateInterval) {
-    lastUpdate = millis();
-
-    // Fade in the current ring (if not yet full and not marked done)
-    if (!ringDone[currentRing] && ringBrightness[currentRing] < 255) {
-      ringBrightness[currentRing] = min(255, ringBrightness[currentRing] + fadeInStep);
-      if (ringBrightness[currentRing] >= 255) ringDone[currentRing] = true;
-    }
-    // Fade in any inner ring that is not yet at full brightness and not marked done
-    for (int r = currentRing + 1; r < 9; ++r) {
-      if (!ringDone[r] && ringBrightness[r] < 255 && ringBrightness[r] > 0) {
-        ringBrightness[r] = min(255, ringBrightness[r] + fadeInStep);
-        if (ringBrightness[r] >= 255) ringDone[r] = true;
-      }
-    }
-
-    // Dim all rings which finished fading in
-    for (int r = 0; r < 9; r++) {
-      if (ringDone[r] && ringBrightness[r] > fadeOutStep) {
-        ringBrightness[r] -= fadeOutStep;
-      } else if (ringDone[r]) {
-        ringBrightness[r] = 0;
-      } 
-    }
-
-    // Move to next inner ring if not at center and current ring is faded in to trigger brightness
-    if (currentRing > 0 && ringBrightness[currentRing] >= triggerBrightness) {
-      currentRing--;
-      ringBrightness[currentRing] = 0; // Start new ring at 0 for fade-in
-    } else if (currentRing == 0 && ringBrightness[currentRing] == 0) {
-      // Finished contracting, end effect
-      burstActiveTarget = false;
-    }
-  }
-
-  // Draw rings with current brightness, alternating colors
-  fill_solid(leds, NUM_LEDS, CRGB::Black);
-  for (int r = 0; r < 9; r++) {
-    // uint8_t b = ringBrightness[r];
-    // CRGB base = (((8 - r) & 1) == 0) ? primaryColor : altColor; // outermost ring (r==8) uses primaryColor
-    CRGB base = inputColor; 
-    for (int i = 0; i < ringSizes[r]; i++) {
-      leds[rings[r][i]] = base;
-      leds[rings[r][i]].nscale8(ringBrightness[r]);
-    }
-  }
-  FastLED.show();
 }
 // Rainbow Fade: The mode so nice we put it twice (fading out and fading in)
 void showRainbowOut(uint16_t fadeSpeed) { // Rainbow fade effect across all rings
@@ -1554,6 +1464,86 @@ void showCurvyWaves() { // Isa's Windmill
 
   FastLED.show();
 }
+void showTarget(CRGB inputColor) { // Contracting red rings from outside inward with dimming trail
+  static int currentRing = 8; // Start from outermost ring9
+  static uint8_t ringBrightness[9] = {0};
+  static bool ringDone[9] = {false}; // Track each ring if done fading in
+  static unsigned long lastUpdate = 0;
+  const unsigned long updateInterval = 6; // ms between updates
+  const uint8_t fadeInStep = 4; // Fade-in step
+  const uint8_t triggerBrightness = 200; // Minimum brightness to trigger next ring
+  const uint8_t fadeOutStep = 4;   // Dimming step per update
+  // const CRGB primaryColor = CRGB::Magenta; // Primary target color
+  // const CRGB altColor = CRGB::Magenta;  // Second target color
+  // const CRGB primaryColor = CRGB::Cyan; // Primary target color
+  // const CRGB altColor = CRGB::Cyan;  // Second target color
+
+  // Start effect
+  if (!burstActiveTarget) {
+    burstActiveTarget = true;
+    currentRing = 8;
+    for (int r = 0; r < 9; r++) {
+      ringBrightness[r] = 0;
+      ringDone[r] = false;
+    }
+    ringBrightness[8] = triggerBrightness; // Outermost ring starts at trigger brightness
+    fill_solid(leds, NUM_LEDS, CRGB::Black);
+    FastLED.show();
+    return;
+  }
+
+  // Update every updateInterval
+  if (millis() - lastUpdate >= updateInterval) {
+    lastUpdate = millis();
+
+    // Fade in the current ring (if not yet full and not marked done)
+    if (!ringDone[currentRing] && ringBrightness[currentRing] < 255) {
+      ringBrightness[currentRing] = min(255, ringBrightness[currentRing] + fadeInStep);
+      if (ringBrightness[currentRing] >= 255) ringDone[currentRing] = true;
+    }
+    // Fade in any inner ring that is not yet at full brightness and not marked done
+    for (int r = currentRing + 1; r < 9; ++r) {
+      if (!ringDone[r] && ringBrightness[r] < 255 && ringBrightness[r] > 0) {
+        ringBrightness[r] = min(255, ringBrightness[r] + fadeInStep);
+        if (ringBrightness[r] >= 255) ringDone[r] = true;
+      }
+    }
+
+    // Dim all rings which finished fading in
+    for (int r = 0; r < 9; r++) {
+      if (ringDone[r] && ringBrightness[r] > fadeOutStep) {
+        ringBrightness[r] -= fadeOutStep;
+      } else if (ringDone[r]) {
+        ringBrightness[r] = 0;
+      } 
+    }
+
+    // Move to next inner ring if not at center and current ring is faded in to trigger brightness
+    if (currentRing > 0 && ringBrightness[currentRing] >= triggerBrightness) {
+      currentRing--;
+      ringBrightness[currentRing] = 0; // Start new ring at 0 for fade-in
+    } else if (currentRing == 0 && ringBrightness[currentRing] == 0) {
+      // Finished contracting, end effect
+      burstActiveTarget = false;
+    }
+  }
+
+  // Draw rings with current brightness, alternating colors
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+  for (int r = 0; r < 9; r++) {
+    uint8_t b = ringBrightness[r];
+    // CRGB base = (((8 - r) & 1) == 0) ? primaryColor : altColor; // outermost ring (r==8) uses primaryColor
+    CRGB base = inputColor; 
+    for (int i = 0; i < ringSizes[r]; i++) {
+      leds[rings[r][i]] = CRGB(
+        (base.r * b) / 255,
+        (base.g * b) / 255,
+        (base.b * b) / 255
+      );
+    }
+  }
+  FastLED.show();
+}
 // void showWOTYCycle() {  // Sonnet 4.5 (first) try at a smoothly Cycling WOTY
 //   static unsigned long lastUpdate = 0;
 //   static float continuousHueOffset = 0.0; // Smooth floating-point offset
@@ -1664,11 +1654,6 @@ void showStargateSG1() {
   showAperture();
   showTarget(CRGB::Cyan);
 }
-void showLateEotT() {
-    showTarget(CRGB::OrangeRed);
-    showBreathing();
-}
-
 
 // --- Setup ---
 void setup() {
@@ -1702,7 +1687,6 @@ void setup() {
   // }
   // FastLED.show();
 }
-
 
 // --- Main loop ---
 void loop() {
@@ -1865,36 +1849,23 @@ void loop() {
   static EffectMode lastEffect = STATIC1;
   if (altMandalaActive && millis() - lastTouch <= getDynamicPhaseDuration()) {
     inFallback = false; // Just entered dynamic phase so not in fallback
-    // Reset the reset flags effects if we just switched the mode
-    if (currentEffect != lastEffect) ModeSwitchFlagsReset();
-    // if (currentEffect != lastEffect) {
-    //   burstActiveCenter = false;
-    //   burstActiveSun = false;
-    //   burstActiveTarget = false;
-    //   firstSpiralRun = true;
-    //   firstTwinkleOrangeRun = true;
-    //   firstTwinkleRealRun = true;
-    //   firstWOTYRotateRun = true;
-    //   firstApertureRun = true;
-    // }
-    
-    // // Reset the burst effects if we just switched to one of them
-    // if (currentEffect == CenterBurst && lastEffect != CenterBurst) burstActiveCenter = false;
-    // if (currentEffect == SunBurst && lastEffect != SunBurst) burstActiveSun = false;
-    // if (currentEffect == Target && lastEffect != Target) burstActiveTarget = false;
-    // // If we just switched to SpiralFill, reset the spiral
-    // if (currentEffect == SpiralFill && lastEffect != SpiralFill) firstSpiralRun = true;
-    // // If we just switched to TwinkleOrange, reset the sustain
-    // if (currentEffect == TwinkleOrange && lastEffect != TwinkleOrange) firstTwinkleOrangeRun = true;
-    // // If we just switched to TwinkleReal, reset it
-    // if (currentEffect == TwinkleReal && lastEffect != TwinkleReal) firstTwinkleRealRun = true;
-    // // If we just switched to WOTYRotate, reset it
-    // if (currentEffect == WOTYRotate && lastEffect != WOTYRotate) firstWOTYRotateRun = true;
-    // // If we just switched to Aperture, or a combo that uses it, reset its flag
-    // if (currentEffect == Aperture && lastEffect != Aperture) firstApertureRun = true;
-    // if (currentEffect == SpacePortal && lastEffect != SpacePortal) firstApertureRun = true;
-    // if (currentEffect == IsasFireworks && lastEffect != IsasFireworks) firstApertureRun = true;
-    // if (currentEffect == StargateSG1 && lastEffect != StargateSG1) firstApertureRun = true;
+    // Reset the burst effects if we just switched to one of them
+    if (currentEffect == CenterBurst && lastEffect != CenterBurst) burstActiveCenter = false;
+    if (currentEffect == SunBurst && lastEffect != SunBurst) burstActiveSun = false;
+    if (currentEffect == Target && lastEffect != Target) burstActiveTarget = false;
+    // If we just switched to SpiralFill, reset the spiral
+    if (currentEffect == SpiralFill && lastEffect != SpiralFill) firstSpiralRun = true;
+    // If we just switched to TwinkleOrange, reset the sustain
+    if (currentEffect == TwinkleOrange && lastEffect != TwinkleOrange) firstTwinkleOrangeRun = true;
+    // If we just switched to TwinkleReal, reset it
+    if (currentEffect == TwinkleReal && lastEffect != TwinkleReal) firstTwinkleRealRun = true;
+    // If we just switched to WOTYRotate, reset it
+    if (currentEffect == WOTYRotate && lastEffect != WOTYRotate) firstWOTYRotateRun = true;
+    // If we just switched to Aperture, or a combo that uses it, reset its flag
+    if (currentEffect == Aperture && lastEffect != Aperture) firstApertureRun = true;
+    if (currentEffect == SpacePortal && lastEffect != SpacePortal) firstApertureRun = true;
+    if (currentEffect == IsasFireworks && lastEffect != IsasFireworks) firstApertureRun = true;
+    if (currentEffect == StargateSG1 && lastEffect != StargateSG1) firstApertureRun = true;
 
     switch (currentEffect) {
       case DynamicFlower:  showDynamicFlower(2); break; // 2 octal rotations bring White to the top
@@ -1933,21 +1904,28 @@ void loop() {
       case IsasFireworks:       showIsasFireworks(); break;
       case KunterbuntSpiral:    showKunterbuntSpiral(); break;
       case StargateSG1:         showStargateSG1(); break;
-      case LateEotT:            showLateEotT(); break;
-
       default:             showRainbowOut(40); break;
     }
     lastEffect = currentEffect;
   } else {
     if (!inFallback) { // Flags reset on entry to fallback
       inFallback = true; 
-      ModeSwitchFlagsReset();
+      burstActiveCenter = false;
+      burstActiveSun = false;
+      burstActiveTarget = false;
+      firstSpiralRun = true;
+      firstTwinkleRealRun = true;
+      firstTwinkleOrangeRun = true;
+      firstWOTYRotateRun = true;
+      firstApertureRun = true;
     }
+    
     // Outside of Active phase- Show the Standby mode:
-    // showTwinkleOrange();
-    showCenterBurst();
-    // showIsasFireworks();
-    // showLateEotT();
+    showTwinkleOrange();
+
+    // // LatEotT
+    // showTarget(CRGB::OrangeRed);
+    // showBreathing();
 
     // showStatic2();
     // showFlowerOutline(2);
@@ -1956,6 +1934,8 @@ void loop() {
     // showSpacePortal();
     // showRainbowOut(40); // Rainbow fade as standby mode
     // showWOTY(327); // Nov 23rd
+
+
 
   }
 }
