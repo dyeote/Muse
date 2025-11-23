@@ -57,25 +57,19 @@ enum EffectMode {  /// Define the effect modes
 };
 
 // --- Menu mode arrays --- defRnbw,7+6+5,adjLamp;
-const EffectMode mainModes[] = { // Primary modes (7)
+const EffectMode mainModes[] = { // Primary modes (9)
   CenterBurst,     // full dynamic
   Target,          // full dynamic
-  // SunBurst,        // full dynamic
-  // BREATHING,       // full dynamic
-  // Aperture,        // thin dynamic (I'm being so sincere)
-  // RainbowIn,       // full dynamic 
-  // RainbowOut,      // full dynamic
-  // TwinkleReal,     // thin dynamic
-  // New combos
-  SnowyWinterSolstice, // WOTY + TwinkleReal
+  SunBurst,        // full dynamic
+  BREATHING,       // full dynamic
+  Aperture,        // thin dynamic (I'm being so sincere)
+  RainbowIn,       // full dynamic 
+  RainbowOut,      // full dynamic
+  TwinkleReal,     // thin dynamic
   TwinkleOrange,   // half-full dynamic
-
-  CoolPinwheel,        // CurvyWaves + Target(Cyan)
-  SparkInvaders,       // RadarSweep + TwinkleOrange  
-  // LateEotT,            // Target(OrangeRed) + Breathing
 };
 
-const EffectMode subModes[] = { // Secondary modes (6)
+const EffectMode subModes[] = { // Secondary modes (9)
   CurvyWaves,      // thin semi-Dynamic
   WotY,            // full Static - Wheel of the Year
   WOTYRotate,      // full dynamic
@@ -86,10 +80,9 @@ const EffectMode subModes[] = { // Secondary modes (6)
   FragileSpokes,   // thin Static
   SpiralFill,      // full Dynamic
   // RadarSweep,      // full dynamic ++
-  TwinkleOrange,   // half-full dynamic
 };
 
-const EffectMode tertiaryModes[] = { // Tertiary modes (5 + 9 = 14)
+const EffectMode tertiaryModes[] = { // Tertiary modes (9)
   // New combos
   SnowyWinterSolstice, // WOTY + TwinkleReal
   CoolPinwheel,        // CurvyWaves + Target(Cyan)
@@ -1944,8 +1937,9 @@ void loop() {
       ModeSwitchFlagsReset();
     }
     // Outside of Active phase- Show the Standby mode:
+    showStargateSG1();
     // showTwinkleOrange();
-    showCenterBurst();
+    // showCenterBurst();
     // showIsasFireworks();
     // showLateEotT();
 
