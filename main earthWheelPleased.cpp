@@ -3,7 +3,7 @@
 // #include <time.h>  // Add this for time functions
 
 const int centerSensorPin = 4;   // GPIO4 input
-const int relayButtonPin = 10;   // GPIO10 input
+const int relayButtonPin = 10;    // GPIO10 input
 // const int testLEDPin = 8;        // GPIO8 output for testing
 
 #define LED_TYPE    WS2812B
@@ -11,9 +11,9 @@ const int relayButtonPin = 10;   // GPIO10 input
 #define LED_PIN     21     // GPIO20 output pin for addressable LEDs
 #define NUM_LEDS    184    // Updated total LED count; was 150 in v1 with numbers 0,1,2,3,4,37 unused
 #define BRIGHTNESS  64
-const uint8_t brightnessLevels[] = {12, 25, 64, 128, 255}; // 5%, 10%, 25%, 50%, 100%
+const uint8_t brightnessLevels[] = {12, 25, 128, 255}; // 5%, 10%, 50%, 100%
 const uint8_t NUM_BRIGHTNESS_LEVELS = sizeof(brightnessLevels) / sizeof(brightnessLevels[0]);
-uint8_t brightnessIndex = 2; // Start at 25% brightness
+uint8_t brightnessIndex = 1; // Start at 10% brightness
 
 // --- Effect Mode Enum --- // 26 of them! 18+2 active + 9 combos
 enum EffectMode {  /// Define the effect modes
@@ -150,7 +150,7 @@ unsigned long getDynamicPhaseDuration() {
 
 // --- Palette definitions ---
 CRGB leds[NUM_LEDS];
-// Muse palette: White, (yellow), (orange), Red, Magenta, Blue, Cyan, Chartreuse
+// Muse palette: White, Orange(yellow), OrangeRed(orange), Red, Magenta, Blue, Cyan, Chartreuse
 const CRGB palette[8] = {
   CRGB::White, CRGB::Orange, CRGB::OrangeRed, CRGB::Red,
   CRGB::Magenta, CRGB::Blue, CRGB::Cyan, CRGB::Chartreuse
@@ -176,23 +176,14 @@ const CRGB softPalette[8] = {
   CRGB::DarkOrange, CRGB::OrangeRed, CRGB::Red, CRGB::DeepPink,
   CRGB::DarkOrange, CRGB::OrangeRed, CRGB::Red, CRGB::DeepPink
 };
-// Cool palette: RoyalBlue, Teal, ForestGreen, OliveDrab, Olive, Chartreuse, Green, SpringGreen
-const CRGB coolPalette[8] = {
+// new palette: blue, soft-cyan, greenish-yellow, fornidden-green; doubled
+// const CRGB newPalette[8] = { //revisit.
+//   CRGB::Blue, CRGB::DarkCyan, CRGB::ForestGreen, CRGB::OliveDrab,
+//   CRGB::Olive, CRGB::OliveDrab, CRGB::ForestGreen, CRGB::DarkCyan,
+// };
+const CRGB earthPalette[8] = {
   CRGB::Blue, CRGB::Teal, CRGB::ForestGreen, CRGB::OliveDrab,
-  CRGB::Olive, CRGB::Chartreuse, CRGB::Green, CRGB::SpringGreen,
-};
-// Pastel palette: From Magenta, through BlueViolet, LightPink, and CadetBlue, to Cyan
-const CRGB pastelPalette[8] = { 
-  CRGB::Magenta,      // Pinkish
-  CRGB::BlueViolet,   // bluish-pink
-  CRGB::LightPink,    // almost white
-  CRGB::CadetBlue,    // greenish-cyan
-  CRGB::Cyan,         // Turquoise
-  CRGB::CadetBlue, CRGB::LightPink, CRGB::BlueViolet,
-};
-const CRGB testPalette[8] = {
-  CRGB::Red, CRGB::Green, CRGB::Blue, CRGB::White,
-  CRGB::Cyan, CRGB::Magenta, CRGB::Yellow, CRGB::Black,
+  CRGB::Olive, CRGB::Chartreuse, CRGB::Green, CRGB::DarkCyan,
 };
 
 // --- Mapping arrays and build functions ---
@@ -424,43 +415,6 @@ void buildSectorMapping() {
   }
 }
 
-// buildAngleMapping() function defining the 64 angular groups:
-const int angleLens[64] = {9,1,2,2,4,2,2,1,9,1,2,2,4,2,2,1,
-                           9,1,2,2,4,2,2,1,9,1,2,2,4,2,2,1,
-                           9,1,2,2,4,2,2,1,9,1,2,2,4,2,2,1,
-                           9,1,2,2,4,2,2,1,9,1,2,2,4,2,2,1};
-int anglePixels[64][9]; // Use max size for all angles
-void buildAngleMapping() {
-  for (int a = 0; a < 64; a++) {
-    int len = 0;
-    int idx = a / 8; // Map 64 angles to 8 indices
-
-    // Add radial pixels
-    if (a % 8 == 0) // Cardinal angle
-      for (int i = 0; i < radialSizes[idx * 2]; i++)
-        anglePixels[a][len++] = radials[idx * 2][i];
-    if (a % 8 == 1) // Next left of cardinal
-      anglePixels[a][len++] = circle7_splitRight[idx];
-    if (a % 8 == 2) { // Midway between cardinal and counterclockwise secondary
-      anglePixels[a][len++] = circle6_splitRight[idx];
-        anglePixels[a][len++] = circle8_secondRight[idx]; }
-    if (a % 8 == 3) {// Right of secondary
-      anglePixels[a][len++] = circle5_splitRight[idx];
-      anglePixels[a][len++] = circle7_secondRight[idx]; }
-    if (a % 8 == 4) // Secondary angle
-      for (int i = 0; i < radialSizes[idx * 2 + 1]; i++)
-        anglePixels[a][len++] = radials[idx * 2 + 1][i];
-    if (a % 8 == 5) {// Next left of secondary
-      anglePixels[a][len++] = circle5_splitLeft[idx];
-      anglePixels[a][len++] = circle7_secondLeft[idx]; }
-    if (a % 8 == 6) { // Midway between secondary and next ccw cardinal
-      anglePixels[a][len++] = circle6_splitLeft[idx];
-      anglePixels[a][len++] = circle8_secondLeft[idx]; }
-    if (a % 8 == 7) // Leftmost right of secondary
-      anglePixels[a][len++] = circle7_splitLeft[idx];
-  }
-}
-
 // Build left and right curves for each sector:
 int leftCurves[8][6]; // 8 curves, 6 pixels each
 void buildLeftCurves() {
@@ -504,12 +458,12 @@ bool altMandalaActive = false;
 static bool burstActiveCenter = false;  // Period flag for CenterBurst
 static bool burstActiveSun = false;     // Period flag for SunBurst
 static bool burstActiveTarget = false;  // Period flag for Target
-
+// bool showingColorWheel = false;     // Seasonal Color Wheel state
+// unsigned long colorWheelStart = 0;  // Timer for color wheel animation
 bool firstSpiralRun = true;         // Flag to track first run of Spiral Fill effect
 bool firstTwinkleRealRun = true;    // Flag to track first run of TwinkleReal
 bool firstTwinkleOrangeRun = true;  // Flag to track first run of Twinkle Orange
 bool firstWOTYRotateRun = true;     // Flag to track first run of WOTY Rotate
-bool firstWheelAroundRun = true;    // Flag to track first run of Wheel Around effect
 bool firstApertureRun = true;       // Flag to track first run of Aperture effect
 
 static bool inFallback = false;     // Fallback mode state
@@ -562,18 +516,6 @@ CRGB getBaseColor(int r, int i) {
   }
   return CRGB::Black; // Fallback
 }
-
-// // Helper function to blend two CHSV colors, taking shortest path for hue
-// CHSV blendHue(const CHSV& a, const CHSV& b, uint8_t amount) {
-//     // hue shortest path
-//     int16_t delta = b.h - a.h;
-//     if (delta > 127)  delta -= 256;
-//     if (delta < -127) delta += 256;
-//     uint8_t h = a.h + (delta * amount) / 255;
-//     uint8_t s = lerp8by8(a.s, b.s, amount);
-//     uint8_t v = lerp8by8(a.v, b.v, amount);
-//     return CHSV(h, s, v);
-// }
 
 // --- All effects Mode functions ---
 // Static Mode functions:
@@ -1702,160 +1644,6 @@ void showWOTYRotate(const CRGB* activePalette, int rpm) {
   }
   FastLED.show();
 }
-// // an already-good version with simple blend():
-// void showWheelAround(const CRGB* activePalette, int rpm) {
-//   static unsigned long lastUpdate = 0;
-//   static uint8_t rotationOffset = 0;
-//   const unsigned long updateInterval = 60000 / (rpm * 32); // Calculate update interval based on RPM
-  
-//   if (firstWheelAroundRun) {  // On function call: reset to Yule at the top
-//     rotationOffset = 0;
-//     firstWheelAroundRun = false;
-//   }
-
-//   if (millis() - lastUpdate >= updateInterval) {
-//     lastUpdate = millis();
-//     rotationOffset = (rotationOffset + 31) % 32; // Rotate by one segment (half-sector)
-//   }
-  
-//   for (int ss = 0; ss < 32; ss++) {
-//     // Rotate the palette assignment
-//     int paletteIndex = ((ss+rotationOffset) / 4) % 8;
-//     CRGB color = activePalette[7-paletteIndex]; 
-//     int prevIndex = (paletteIndex+7) % 8;
-//     CRGB prevColor = activePalette[7-prevIndex]; 
-//     int nextIndex = (paletteIndex+1) % 8;
-//     CRGB nextColor = activePalette[7-nextIndex]; 
-//     int s = ss / 2;
-//     uint8_t blendAmount = 128;
-
-//     for (int i = 0; i < sectorLens[s]; i++) 
-//       leds[sectorPixels[s][i]] = color;
-    
-//     if (rotationOffset % 4 == 3) 
-//       if (s % 2 == 0)  // Cardinal sector, cardinal radials
-//         for (int i = 5; i < sectorLens[s]; i++) 
-//           leds[sectorPixels[s][i]] = blend(color, prevColor, blendAmount);
-
-//     if (rotationOffset % 4 == 2) 
-//       if (s % 2 == 0)  // Cardinal sector, right off-radials
-//         for (int i = 0; i < 5; i++) 
-//           leds[sectorPixels[s][i]] = blend(color, nextColor, blendAmount);
-
-//     if (rotationOffset % 4 == 1) 
-//       if (s % 2 == 1)  // Secondary sector, secondary radials
-//         for (int i = 5; i < sectorLens[s]; i++) 
-//           leds[sectorPixels[s][i]] = blend(color, prevColor, blendAmount);
-
-//     if (rotationOffset % 4 == 0) 
-//       if (s % 2 == 1)  // Secondary sector, left off-radials
-//         for (int i = 0; i < 5; i++) 
-//           leds[sectorPixels[s][i]] = blend(color, nextColor, blendAmount);
-//   }
-//   FastLED.show();
-// }
-// a new version using nblend():
-void showWheelAround(const CRGB* activePalette, int rpm) {
-  static unsigned long lastUpdate = 0;
-  static uint8_t rotationOffset = 0;
-  const unsigned long updateInterval = 60000 / (rpm * 32); // Calculate update interval based on RPM
-  
-  if (firstWheelAroundRun) {  // On function call: reset to Yule at the top
-    rotationOffset = 0;
-    firstWheelAroundRun = false;
-  }
-
-  if (millis() - lastUpdate >= updateInterval) {
-    lastUpdate = millis();
-    rotationOffset = (rotationOffset + 31) % 32; // Rotate by one segment (half-sector)
-  }
-  
-  for (int ss = 0; ss < 32; ss++) {
-    // Rotate the palette assignment
-    int paletteIndex = ((ss+rotationOffset) / 4) % 8;
-    CRGB color = activePalette[7-paletteIndex]; 
-    int prevIndex = (paletteIndex+7) % 8;
-    CRGB prevColor = activePalette[7-prevIndex]; 
-    int nextIndex = (paletteIndex+1) % 8;
-    CRGB nextColor = activePalette[7-nextIndex]; 
-    int s = ss / 2;
-    uint8_t blendAmount = 128; // 50% blend
-
-    // for (int i = 0; i < sectorLens[s]; i++) leds[sectorPixels[s][i]] = color;
-    
-    if (rotationOffset % 4 == 3 && s % 2 == 0)  // Cardinal sector, cardinal radials
-      // for (int i = 5; i < sectorLens[s]; i++) nblend(leds[sectorPixels[s][i]], prevColor, blendAmount);
-      for (int i = 5; i < sectorLens[s]; i++) leds[sectorPixels[s][i]] = prevColor;
-    if (rotationOffset % 4 == 2 && s % 2 == 0)  // Cardinal sector, right off-radials
-      // for (int i = 0; i < 5; i++) nblend(leds[sectorPixels[s][i]], nextColor, blendAmount);
-      for (int i = 0; i < 5; i++) leds[sectorPixels[s][i]] = color;
-    if (rotationOffset % 4 == 1 && s % 2 == 1)  // Secondary sector, secondary radials
-      // for (int i = 5; i < sectorLens[s]; i++) nblend(leds[sectorPixels[s][i]], prevColor, blendAmount);
-      for (int i = 5; i < sectorLens[s]; i++) leds[sectorPixels[s][i]] = prevColor;
-    if (rotationOffset % 4 == 0 && s % 2 == 1)  // Secondary sector, left off-radials
-      // for (int i = 0; i < 5; i++) nblend(leds[sectorPixels[s][i]], nextColor, blendAmount);
-      for (int i = 0; i < 5; i++) leds[sectorPixels[s][i]] = color;
-  }
-  FastLED.show();
-}
-
-void showWheel64(const CRGB* activePalette, int rpm) {
-  static unsigned long lastUpdate = 0;
-  static uint8_t rotationOffset = 0;
-  const unsigned long updateInterval = 60000 / (rpm * 64); // 64 steps per rotation
-
-  if (millis() - lastUpdate >= updateInterval) {
-    lastUpdate = millis();
-    rotationOffset = (rotationOffset + 63) % 64; // Rotate by one angle group
-  }
-
-  // For each of the 64 angular groups
-  for (int a = 0; a < 64; a++) {
-    // Palette index for this angle group, rotating through 8 colors
-    int paletteIndex = ((a + rotationOffset) / 8) % 8;
-    CRGB color = activePalette[7 - paletteIndex];
-    int prevIndex = (paletteIndex + 7) % 8;
-    CRGB prevColor = activePalette[7 - prevIndex];
-
-    // Only the 8 angles at the leading edge blend, the rest are solid color
-    uint8_t blendAmount = 0;
-    if ((a + rotationOffset) % 8 == 0) blendAmount = 192;     // 75% blend
-    else if ((a + rotationOffset) % 8 == 1) blendAmount = 64; // 25% blend
-    // else if ((a + rotationOffset) % 8 == 2) blendAmount = 50;
-    // else if ((a + rotationOffset) % 8 == 3) blendAmount = 50;
-
-    for (int i = 0; i < angleLens[a]; i++) {
-      if (blendAmount == 0) {
-        leds[anglePixels[a][i]] = color;
-      } else {
-        CRGB tmp = color;
-        nblend(tmp, prevColor, blendAmount);
-        leds[anglePixels[a][i]] = tmp;
-      }
-    }
-  }
-
-  FastLED.show();
-}
-
-void rainbowWheel(uint16_t fadeSpeed) {
-  static uint8_t baseHue = 0;
-  static unsigned long lastUpdate = 0;
-  // Update every fadeSpeed ms for smooth animation
-  if (millis() - lastUpdate > fadeSpeed) {
-    lastUpdate = millis();
-    baseHue++;
-  }
-  for (int a = 0; a < 64; a++) {
-    // Compute hue for this angle group, cycling through the full colorspace
-    uint8_t angleHue = (baseHue + a * 4) % 256; // 64*4=256 covers full hue wheel
-    // uint8_t angleHue = baseHue; // removes angular dependence, just cycles the whole mandala's hue
-    for (int i = 0; i < angleLens[a]; i++) {
-      leds[anglePixels[a][i]] = CHSV(angleHue, 255, 255);
-    }
-  }
-  FastLED.show();
-}
 
 // Combo Mode functions:
 void showSnowyWinterSolstice() {
@@ -1907,7 +1695,6 @@ void setup() {
   // bootTime = millis();
   // Serial.begin(115200); // Start serial for debugging
   buildSectorMapping(); // Build the sector mapping
-  buildAngleMapping();  // Build the Angles mapping
   buildLeftCurves();
   buildRightCurves();
   pinMode(centerSensorPin, INPUT);
@@ -2134,23 +1921,11 @@ void loop() {
 
     // showWOTY(335); // Dec 1st (Advent)
 
+    showWOTYRotate(earthPalette, 15);
     // showTarget(CRGB::OliveDrab);
 
-    rainbowWheel(234); // one rainbow wheel revolution per minute
-    // showWOTYRotate(yearPalette, 8);
-    // showWheelAround(yearPalette, 5); // one rotation every 12s (5rpm)
-    // showWheel64(yearPalette, 12); // one rotation every 5s (12rpm)
-
-    // %%% Save these:
-    // // Cotton candy (pastel wheel):
-    // showWheel64(pastelPalette, 24); // rp2.5s
-
-    // // sea&sky (cool wheel):
-    // showWheel64(coolPalette, 20); // rp3s
-    
     // // softness (fiery wheel):
-    // showWheel64(softPalette, 12); // rp5s
-
+    // showWOTYRotate(softPalette, 33); 
 
     // showStargateSG1();
     // showTwinkleOrange();
