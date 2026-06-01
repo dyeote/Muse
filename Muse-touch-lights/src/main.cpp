@@ -53,8 +53,9 @@ enum EffectMode {  /// Define the effect modes
   IsasFireworks,       // Aperture + Target(Magenta) + CenterBurst + TwinkleReal
   KunterbuntSpiral,    // SpiralFill(yearPalette) + SpiralFill(palette)
   StargateSG1,         // Aperture + Target(Cyan)
-  LatEotT,            // Target(OrangeRed) + Breathing
+  LatEotT,             // Target(OrangeRed) + Breathing
   OstaraFocus,         // Target(Violet) + FlowerMono(in Ostara's colour)
+  HornySeason,         // Ostara's flowers + Beltane's focuses + Litha's bursts
   // New wheel modes
   WheelTurn,           // New rotating Wheel of the Year using 64-angles wheel function
   RainbowWheel,        // Clockwise rotating Rainbow using the new 64-angles mapping
@@ -65,11 +66,12 @@ enum EffectMode {  /// Define the effect modes
 
 // --- Menu mode arrays --- defRnbw,9+8+7,adjLamp;
 const EffectMode mainModes[] = { // Primary modes (10)
-  OstaraFocus,     // thin dynamic combo
+  WotY,            // full Static - Wheel of the Year
   SunBurst,        // full dynamic
   TwinkleOrange,   // half-full dynamic
-  FlowerMono,      // thin Static
-  STATIC1,         // Static Mode #1: MVP - Minimally Viable Mandala
+  RainbowOut,      // full dynamic
+  // FlowerMono,      // thin Static
+  OstaraFocus,     // thin dynamic combo
   CurvyWaves,      // thin semi-Dynamic
   Aperture,        // thin dynamic (I'm being so sincere)
   // LAMP,            // full Static
@@ -78,36 +80,38 @@ const EffectMode mainModes[] = { // Primary modes (10)
   TwinkleReal,     // thin dynamic
   // BlueCardinals,   // full semi-Dynamic
   BREATHING,       // full dynamic
-  // CirclesWipe,     // half-full dynamic
+  STATIC1,         // Static Mode #1: MVP - Minimally Viable Mandala
+  CirclesWipe,     // half-full dynamic
   RainbowIn,       // full dynamic 
   CenterBurst,     // full dynamic
   Target,          // full dynamic
-  RainbowOut,      // full dynamic
   // FragileSpokes,   // thin Static
 };
 const EffectMode subModes[] = { // Secondary modes (8)
   SeaAndSky,       // Cool blues and greens wheel
-  WotY,            // full Static - Wheel of the Year
   WheelTurn,       // New rotating Wheel of the Year using 64-angles wheel function
   CottonCandy,     // Cotton Candy pastel wheel
-  RainbowWheel,    // Clockwise rotating Rainbow using the new 64-angles mapping
   FieryWheel,      // Fiery soft wheel
   SpiralFill,      // full Dynamic
-  RadarSweep,      // full dynamic ++
+  RainbowWheel,    // Clockwise rotating Rainbow using the new 64-angles mapping
+  // RadarSweep,      // full dynamic ++
 };
 const EffectMode tertiaryModes[] = { // Tertiary modes (7)
   // New combos
-  // SnowyWinterSolstice, // WOTY + TwinkleReal
-  CoolPinwheel,        // CurvyWaves + Target(Cyan)
-  SpacePortal,         // Aperture + TwinkleReal
   SunTarget,           // SunBurst + Target(Magenta)
-  IsasFireworks,       // Aperture + Target(Magenta) + CenterBurst + TwinkleReal
+  SpacePortal,         // Aperture + TwinkleReal
+  // SnowyWinterSolstice, // WOTY + TwinkleReal
+  LatEotT,            // Breathing + Target(OrangeRed)
   StargateSG1,         // Aperture + Target(Cyan)
-  FlowerFocus,         // FlowerOutline + Target(Violet)
-  SparkInvaders,       // RadarSweep + TwinkleOrange 
+  // SparkInvaders,       // RadarSweep + TwinkleOrange 
   // OstaraFocus,         // Target(Violet) + FlowerMono(in Ostara's colour)
   // KunterbuntSpiral,    // SpiralFill(yearPalette) + SpiralFill(palette)
-  LatEotT,            // Breathing + Target(OrangeRed)
+  CoolPinwheel,        // CurvyWaves + Target(Cyan)
+
+  HornySeason,     // Unstable three-way combo for Summer's onset
+  
+  IsasFireworks,       // Aperture + Target(Magenta) + CenterBurst + TwinkleReal
+  FlowerFocus,         // FlowerOutline + Target(Violet)
 };
 const uint8_t NUM_MAIN_MODES = sizeof(mainModes) / sizeof(mainModes[0]);
 const uint8_t NUM_SUB_MODES = sizeof(subModes) / sizeof(subModes[0]);
@@ -1798,7 +1802,6 @@ void showCurvyWaves() { // Isa's Windmill
 //   }
 //   FastLED.show();
 // }
-
 void showWheel64(const CRGB* activePalette, int rpm) {
   static unsigned long lastUpdate = 0;
   static uint8_t rotationOffset = 31; // Start with Ostara at the top?
@@ -1841,7 +1844,7 @@ void showRainbowWheel(uint16_t fadeSpeed) {
   static uint8_t baseHue = 0;
   static unsigned long lastUpdate = 0;
   // Update every fadeSpeed ms for smooth animation
-  if (millis() - lastUpdate > fadeSpeed) {
+  if (millis() - lastUpdate > fadeSpeed) { 
     lastUpdate = millis();
     baseHue++;
   }
@@ -1901,8 +1904,13 @@ void showLatEotT() {
 }
 void showOstaraFocus() {
   showFlowerMono(yearPalette[2]); // Ostara's color
-  showTarget(CRGB::Violet);
+  showTarget(CRGB::Violet); // Original variant for Ostara
   // showSunBurst(); // Isa also likes it with Sunburst (instead of Target)
+}
+void showHornySeason() {
+  showFlowerMono(yearPalette[2]); // Ostara's colour flowers
+  showTarget(CRGB::Cyan);         // Beltane's colour focuses
+  showSunBurst();                 // Litha's colour bursts
 }
 
 // --- Setup ---
@@ -2093,7 +2101,7 @@ void loop() {
       case FoxyYB:         showStatic2(); break;
       case SpectrumPizza:  showStatic3(); break;
       case FragileSpokes:  showFragileSpokes(2); break; // 2 octal rotations bring White to the top
-      case WotY:           showWOTY(79); break; // 79 = Mar 20th (Ostara/Vernal Equinox)
+      case WotY:           showWOTY(141); break; // 141 = May 21st (between Beltane and Litha, Summer's onset)
       case TWINKLE:        showTwinkle(); break;
       case TwinkleReal:    showTwinkleReal(); break;
       case TwinkleOrange:  showTwinkleOrange(); break;
@@ -2127,6 +2135,7 @@ void loop() {
       case StargateSG1:         showStargateSG1(); break;
       case LatEotT:             showLatEotT(); break; 
       case OstaraFocus:         showOstaraFocus(); break;
+      case HornySeason:         showHornySeason(); break;
       // New wheel cases
       case WheelTurn:           showWheel64(yearPalette, 12); break; // one rotation every 5s (12rpm)
       case RainbowWheel:        showRainbowWheel(234); break; // one rainbow wheel revolution per minute
@@ -2142,11 +2151,14 @@ void loop() {
       inFallback = true; 
       ModeSwitchFlagsReset();
     }
+    // showWOTY(141); // 141 = May 21st (between Beltane and Litha, Summer's onset)
+    // showHornySeason();
+    showRainbowWheel(234); // one rainbow wheel revolution per minute
     
     // showFlowerMono(yearPalette[2]); // Chartreuse (Ostara) flower
-    showOstaraFocus(); // Chartreuse (Ostara) flower with Violet target
+    // showOstaraFocus(); // Chartreuse (Ostara) flower with Violet target
     // showTwinkleReal();
-    // showRainbowWheel(234); // one rainbow wheel revolution per minute
+    
     // showWOTY(355); // Dec 21st (Winter Solstice/Yule)
     // showWOTY(79); // 79 = Mar 20th (Ostara/Vernal Equinox)
     // showWheel64(yearPalette, 12); 
