@@ -13,7 +13,7 @@ const int relayButtonPin = 10;   // GPIO10 input
 #define BRIGHTNESS  64
 const uint8_t brightnessLevels[] = {12, 25, 50, 127, 255}; // 5%, 10%, 20%, 50%, 100%
 const uint8_t NUM_BRIGHTNESS_LEVELS = sizeof(brightnessLevels) / sizeof(brightnessLevels[0]);
-uint8_t brightnessIndex = 0; // Start at 5% brightness
+uint8_t brightnessIndex = 0; // Start at 20% brightness
 
 // --- Effect Mode Enum --- // 25 base modes + 10 combos + 5 wheels = 40 total
 enum EffectMode {  /// Define the effect modes
@@ -88,7 +88,6 @@ const EffectMode mainModes[] = { // Primary modes (10)
   // FragileSpokes,   // thin Static
 };
 const EffectMode subModes[] = { // Secondary modes (8)
-  // Mostly the wheeling modes
   SeaAndSky,       // Cool blues and greens wheel
   WheelTurn,       // New rotating Wheel of the Year using 64-angles wheel function
   CottonCandy,     // Cotton Candy pastel wheel
@@ -99,21 +98,20 @@ const EffectMode subModes[] = { // Secondary modes (8)
 };
 const EffectMode tertiaryModes[] = { // Tertiary modes (7)
   // New combos
-  SunTarget,       // SunBurst + Target(Magenta)
-  SpacePortal,     // Aperture + TwinkleReal
-  LatEotT,         // Breathing + Target(OrangeRed)
-  StargateSG1,     // Aperture + Target(Cyan)
-
-  CoolPinwheel,    // CurvyWaves + Target(Cyan)
-
-  HornySeason,     // Vigorous NEW three-way combo for Summer's onset
-  // SparkInvaders, //TODO: bring it back? // RadarSweep + TwinkleOrange 
-  IsasFireworks,   // Aperture + Target(Magenta) + CenterBurst + TwinkleReal
-  FlowerFocus,     // FlowerOutline + Target(Violet)
-
+  SunTarget,           // SunBurst + Target(Magenta)
+  SpacePortal,         // Aperture + TwinkleReal
   // SnowyWinterSolstice, // WOTY + TwinkleReal
+  LatEotT,            // Breathing + Target(OrangeRed)
+  StargateSG1,         // Aperture + Target(Cyan)
+  // SparkInvaders,       // RadarSweep + TwinkleOrange 
   // OstaraFocus,         // Target(Violet) + FlowerMono(in Ostara's colour)
   // KunterbuntSpiral,    // SpiralFill(yearPalette) + SpiralFill(palette)
+  CoolPinwheel,        // CurvyWaves + Target(Cyan)
+
+  HornySeason,     // Unstable three-way combo for Summer's onset
+  
+  IsasFireworks,       // Aperture + Target(Magenta) + CenterBurst + TwinkleReal
+  FlowerFocus,         // FlowerOutline + Target(Violet)
 };
 const uint8_t NUM_MAIN_MODES = sizeof(mainModes) / sizeof(mainModes[0]);
 const uint8_t NUM_SUB_MODES = sizeof(subModes) / sizeof(subModes[0]);
@@ -613,7 +611,7 @@ void showStatic0() { // Static Mode #0: (Something, formerly Candy-corn)
     leds[circle8_secondRight[i]] = CRGB::Red;
     leds[circle8_cardinals[i]] = CRGB::OrangeRed;
   }
-  // FastLED.show();
+  FastLED.show();
 }
 void showStatic1() { // Static Mode #1: (MVP - Minimally Viable Mandala)
   for (int i = 0; i < 8; i++) {
@@ -644,7 +642,7 @@ void showStatic1() { // Static Mode #1: (MVP - Minimally Viable Mandala)
     leds[circle8_secondaries[i]] = palette[4];  // Magenta
     leds[circle8_secondLeft[i]] = palette[4];   // Magenta
   }
-  // FastLED.show();
+  FastLED.show();
 }
 void showStatic2() { // Static Mode #2: (Foxy YellowBlue)
   for (int i = 0; i < 8; i++) {
@@ -675,7 +673,7 @@ void showStatic2() { // Static Mode #2: (Foxy YellowBlue)
     leds[circle8_secondaries[i]] = palette[2];   //"Orange"
     leds[circle8_secondLeft[i]] = palette[5];    // Blue
   }
-  // FastLED.show();
+  FastLED.show();
 }
 void showStatic3() { // Static Mode #3: Spectrum Pizza -
   // The angular octs, starting from x→axis(right),
@@ -688,7 +686,7 @@ void showStatic3() { // Static Mode #3: Spectrum Pizza -
     }
   }
   
-  // FastLED.show();
+  FastLED.show();
 }
 void showWOTY(int dayOfYear) { // Wheel of the Year with 16-sector resolution
   dayOfYear = dayOfYear % 365;
@@ -704,11 +702,11 @@ void showWOTY(int dayOfYear) { // Wheel of the Year with 16-sector resolution
       leds[sectorPixels[s][i]] = color;
     }
   }
-  // FastLED.show();
+  FastLED.show();
 }
 void showSeasonalWheel(int numberOfRings) { // Show the seasonal color wheel
   // // All off except inner circle (showing the Seasonal Color Wheel)
-  // fill_solid(leds, NUM_LEDS, CRGB::Black);
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
   for (int i = 0; i < numberOfRings; i++) {
     for (int j = 0; j < 8; j++) {
       CRGB color = yearPalette[(9 - j) % 8]; // Use the Wheel of the Year's palette
@@ -724,13 +722,12 @@ void showSeasonalWheel(int numberOfRings) { // Show the seasonal color wheel
   // leds[NUM_LEDS-7] = CRGB::Magenta;    // Our palette 4
   // leds[NUM_LEDS-6] = CRGB::OrangeRed;  // Our palette 2
   // leds[NUM_LEDS-5] = CRGB::Red;        // Our palette 3
-  
-  // FastLED.show();
+  FastLED.show();
 }
 void showFlowerOutline(int octalRotations) {  // The _split curves form a flower outline
   // static bool firstRun = true;
   // if (firstRun) {
-  // fill_solid(leds, NUM_LEDS, CRGB::Black);
+    fill_solid(leds, NUM_LEDS, CRGB::Black);
   //   firstRun = false;
   // }
   for (int c = 0; c < 8; c++) {
@@ -746,10 +743,10 @@ void showFlowerOutline(int octalRotations) {  // The _split curves form a flower
     // leds[ring1[c]] = color;
     // leds[ring2[c]] = color;
   }
-  // FastLED.show();
+  FastLED.show();
 }
 void showFlowerMono(CRGB inputColor) { // Monochromatic variant of FlowerOutline()
-  // fill_solid(leds, NUM_LEDS, CRGB::Black);
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
   CRGB color = inputColor;
   for (int c = 0; c < 8; c++) {
     int p = (c + 7) % 8;
@@ -760,10 +757,10 @@ void showFlowerMono(CRGB inputColor) { // Monochromatic variant of FlowerOutline
       }
     }
   }
-  // FastLED.show();
+  FastLED.show();
 }
 void showFragileSpokes(int octalRotations) {  // Revisited, reconsidered, and left static
-  // fill_solid(leds, NUM_LEDS, CRGB::Black);
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
   // Draw all cardinals in palette colors
   for (int r = 0; r < 8; r++) { 
     int idx = ((r + octalRotations) * 2) % 16;
@@ -779,7 +776,7 @@ void showFragileSpokes(int octalRotations) {  // Revisited, reconsidered, and le
   }
   // Fix the last drawn shared pixel back to white
   leds[leftCurves[(7 + octalRotations) % 8][1]] = palette[0];
-  // FastLED.show();
+  FastLED.show();
 }
 
 void showLamp() { // Lamp effect: all white at full brightness
@@ -789,7 +786,7 @@ void showLamp() { // Lamp effect: all white at full brightness
   //   firstLampRun = false;
   // }
   fill_solid(leds, NUM_LEDS, CRGB::White);
-  // FastLED.show();
+  FastLED.show();
 }
 
 // Dynamic Mode functions:
@@ -827,7 +824,7 @@ void showCirclesWipe() {  // On base MVM- toggle pixels clockwise in random ring
       currentPixel = ringSizes[currentRing] - 1; // Start from Southern pixel
     }
   }
-  // FastLED.show();
+  FastLED.show();
 }
 void showBreathing() { // Breathing effect for all LEDs
   static uint8_t breathBrightness = 25; // Start with a low brightness
@@ -861,7 +858,7 @@ void showBreathing() { // Breathing effect for all LEDs
   for (int i = 0; i < NUM_LEDS; i++) {
     leds[i] = CRGB(0, 0, breathBrightness);
   }
-  // FastLED.show();
+  FastLED.show();
 }
 void showTwinkle() { // Twinkle effect for random LEDs
   static unsigned long lastTwinkle = 0;
@@ -871,13 +868,13 @@ void showTwinkle() { // Twinkle effect for random LEDs
   if (millis() - lastTwinkle > 500) {
     lastTwinkle = millis();
     // Clear all LEDs before twinkling
-    // fill_solid(leds, NUM_LEDS, CRGB::Black);
+    fill_solid(leds, NUM_LEDS, CRGB::Black);
     // Pick new random indices for twinkles
     for (uint8_t i = 0; i < twinkleCount; i++) {
       twinkleIndices[i] = random(NUM_LEDS);
       leds[twinkleIndices[i]] = CRGB(25, 25, 25); // Dim white
     }
-    // FastLED.show();
+    FastLED.show();
   }
 }
 void showTwinkleReal() { // Staggered twinkle mode — spawn one twinkle at a time, each fades independently
@@ -898,7 +895,7 @@ void showTwinkleReal() { // Staggered twinkle mode — spawn one twinkle at a ti
   const uint8_t FADE_OUT_STEP = 3;             // small step for slow fade-out
   
   if (firstTwinkleRealRun) {  // Wipe clean and reset state every time switched to
-    // fill_solid(leds, NUM_LEDS, CRGB::Black);
+    fill_solid(leds, NUM_LEDS, CRGB::Black);
     for (int i = 0; i < MAX_ACTIVE; ++i) {
       state[i] = 0;
       activeIndex[i] = -1;
@@ -907,9 +904,7 @@ void showTwinkleReal() { // Staggered twinkle mode — spawn one twinkle at a ti
     lastSpawn = millis();
     lastFade = millis();
     firstTwinkleRealRun = false;
-
-    // // FastLED.show();
-    
+    FastLED.show();
     return; // skip spawning on the very first frame
   }
 
@@ -999,7 +994,7 @@ void showTwinkleReal() { // Staggered twinkle mode — spawn one twinkle at a ti
       leds[activeIndex[i]] = CRGB(b, b, b);
     }
   }
-  // FastLED.show();
+  FastLED.show();
 }
 void showTwinkleOrange() {  // Individually toggled warm twinkles
   const unsigned long TOGGLE_INTERVAL = 80; // ms between toggles
@@ -1064,7 +1059,7 @@ void showTwinkleOrange() {  // Individually toggled warm twinkles
     }
   }
 
-  // FastLED.show();
+  FastLED.show();
 }
 void showBlueCardinals() {
   const unsigned long now = millis();
@@ -1073,7 +1068,7 @@ void showBlueCardinals() {
   const uint8_t MIN_BRI = 0;
   const uint8_t MAX_BRI = 255;
 
-  // fill_solid(leds, NUM_LEDS, CRGB::Black);
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
 
   // // For each cardinal radial (even indices in radials[]), animate brightness along the rings (inner->outer)
   for (int r = 0; r < 8; r++) {
@@ -1109,7 +1104,7 @@ void showBlueCardinals() {
     leds[circle8_secondLeft[i]]  = CRGB::Red;
   }
 
-  // FastLED.show();
+  FastLED.show();
 }
 void showCenterBurst() { // Center burst effect: breathe out and in with separate pauses
   static unsigned long burstStart = 0;
@@ -1137,11 +1132,9 @@ void showCenterBurst() { // Center burst effect: breathe out and in with separat
     burstOut = true;
     inPause = false;
     pauseAtOuter = false;
-    // fill_solid(leds, NUM_LEDS, CRGB::Black);
+    fill_solid(leds, NUM_LEDS, CRGB::Black);
     for (int r = 0; r < 9; r++) ringBrightness[r] = 0;
-
-    // // FastLED.show();
-
+    FastLED.show();
     return;
   }
   // Handle pause between out and in
@@ -1154,7 +1147,7 @@ void showCenterBurst() { // Center burst effect: breathe out and in with separat
       innerPauseBrightness = 255; // Reset for next time
     } else {
       // During contracted pause, show only the innermost ring
-      // fill_solid(leds, NUM_LEDS, CRGB::Black);
+      fill_solid(leds, NUM_LEDS, CRGB::Black);
       if (!pauseAtOuter) {
         // Fade inner ring down to target brightness during pause
         if (innerPauseBrightness > 128) {
@@ -1162,8 +1155,7 @@ void showCenterBurst() { // Center burst effect: breathe out and in with separat
         }
         for (int i = 0; i < ringSizes[0]; i++) {
           CRGB base = palette[ringPalette[0]];
-          // leds[rings[0][i]] = CRGB(
-          leds[rings[0][i]] += CRGB(
+          leds[rings[0][i]] = CRGB(
             (base.r * innerPauseBrightness) / 255,
             (base.g * innerPauseBrightness) / 255,
             (base.b * innerPauseBrightness) / 255
@@ -1173,14 +1165,11 @@ void showCenterBurst() { // Center burst effect: breathe out and in with separat
         // During expanded pause, show all rings
         for (int r = 0; r < 9; r++) {
           for (int i = 0; i < ringSizes[r]; i++) {
-            // leds[rings[r][i]] = palette[ringPalette[r]];
-            leds[rings[r][i]] += palette[ringPalette[r]];
+            leds[rings[r][i]] = palette[ringPalette[r]];
           }
         }
       }
-
-      // // FastLED.show();
-
+      FastLED.show();
       return;
     }
   }
@@ -1199,19 +1188,16 @@ void showCenterBurst() { // Center burst effect: breathe out and in with separat
     }
   }
   // Draw rings with current brightness (manual scaling)
-  // fill_solid(leds, NUM_LEDS, CRGB::Black);
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
   for (int r = 0; r < 9; r++) {
-    if (ringBrightness[r] == 0) continue;
-    // CRGB base = palette[ringPalette[r]];
-    CRGB contribution = palette[ringPalette[r]];
-    contribution.nscale8(ringBrightness[r]);
+    // uint8_t b = ringBrightness[r];
+    CRGB base = palette[ringPalette[r]];
     for (int i = 0; i < ringSizes[r]; i++) {
-      // leds[rings[r][i]] = base;
-      // leds[rings[r][i]].nscale8(ringBrightness[r]);
-      leds[rings[r][i]] += contribution;
+      leds[rings[r][i]] = base;
+      leds[rings[r][i]].nscale8(ringBrightness[r]);
     }
   }
-  // // FastLED.show();
+  FastLED.show();
 
   // If expanding, use expandInterval; if contracting, use contractInterval
   unsigned long interval = burstOut ? expandInterval : contractInterval;
@@ -1259,10 +1245,8 @@ void showSunBurst() { // Expand all rings Orange, sustain, then uniformly fade o
     inSustain = false;
     inPause = false;
     currentBrightness = 255;
-    // fill_solid(leds, NUM_LEDS, CRGB::Black);
-
-    // // FastLED.show();
-
+    fill_solid(leds, NUM_LEDS, CRGB::Black);
+    FastLED.show();
     return;
   }
 
@@ -1270,9 +1254,8 @@ void showSunBurst() { // Expand all rings Orange, sustain, then uniformly fade o
 
   // Pause phase (after fade-out complete)
   if (inPause) {
-    // fill_solid(leds, NUM_LEDS, CRGB::Black);
-
-    // // FastLED.show();
+    fill_solid(leds, NUM_LEDS, CRGB::Black);
+    FastLED.show();
 
     if (now - pauseStart >= pauseDuration) {
       inPause = false;
@@ -1285,14 +1268,13 @@ void showSunBurst() { // Expand all rings Orange, sustain, then uniformly fade o
   // Expanding phase
   if (burstOut && !inSustain) {
     // Draw rings up to burstStep in Orange
-    // fill_solid(leds, NUM_LEDS, CRGB::Black);
+    fill_solid(leds, NUM_LEDS, CRGB::Black);
     for (int r = 0; r <= burstStep && r < 9; r++) {
       for (int i = 0; i < ringSizes[r]; i++) {
-        // leds[rings[r][i]] = CRGB::Orange;
-        leds[rings[r][i]] += CRGB::Orange;
+        leds[rings[r][i]] = CRGB::Orange;
       }
     }
-    // // FastLED.show();
+    FastLED.show();
 
     // Check if time to advance
     if (now - burstStart >= expandInterval) {
@@ -1308,14 +1290,13 @@ void showSunBurst() { // Expand all rings Orange, sustain, then uniformly fade o
   // Sustain phase
   else if (inSustain) {
     // Draw all rings in Orange at full brightness
-    // fill_solid(leds, NUM_LEDS, CRGB::Black);
+    fill_solid(leds, NUM_LEDS, CRGB::Black);
     for (int r = 0; r < 9; r++) {
       for (int i = 0; i < ringSizes[r]; i++) {
-        // leds[rings[r][i]] = CRGB::Orange;
-        leds[rings[r][i]] += CRGB::Orange;
+        leds[rings[r][i]] = CRGB::Orange;
       }
     }
-    // // FastLED.show();
+    FastLED.show();
 
     // Check if sustain duration is over
     if (now - sustainStart >= sustainDuration) {
@@ -1328,17 +1309,14 @@ void showSunBurst() { // Expand all rings Orange, sustain, then uniformly fade o
   // Fade-out phase
   else if (!burstOut && !inSustain) {
     // Draw all rings in Orange with current brightness
-    // fill_solid(leds, NUM_LEDS, CRGB::Black);
-    CRGB contribution = CRGB::Orange;
-    contribution.nscale8(currentBrightness);
+    fill_solid(leds, NUM_LEDS, CRGB::Black);
     for (int r = 0; r < 9; r++) {
       for (int i = 0; i < ringSizes[r]; i++) {
-        // leds[rings[r][i]] = CRGB::Orange;
-        // leds[rings[r][i]].nscale8(currentBrightness);
-        leds[rings[r][i]] += contribution;
+        leds[rings[r][i]] = CRGB::Orange;
+        leds[rings[r][i]].nscale8(currentBrightness);
       }
     }
-    // // FastLED.show();
+    FastLED.show();
 
     // Fade out with adaptive step (faster at high brightness, slower at low)
     if (now - burstStart >= expandInterval) {
@@ -1373,8 +1351,8 @@ void showTarget(CRGB inputColor) { // Contracting red rings from outside inward 
       ringDone[r] = false;
     }
     ringBrightness[8] = triggerBrightness; // Outermost ring starts at trigger brightness
-    // fill_solid(leds, NUM_LEDS, CRGB::Black);
-    // // FastLED.show();
+    fill_solid(leds, NUM_LEDS, CRGB::Black);
+    FastLED.show();
     return;
   }
 
@@ -1415,21 +1393,17 @@ void showTarget(CRGB inputColor) { // Contracting red rings from outside inward 
   }
 
   // Draw rings with current brightness, alternating colors
-  // fill_solid(leds, NUM_LEDS, CRGB::Black);
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
   for (int r = 0; r < 9; r++) {
-    //NEWLINEs↓6
-    if (ringBrightness[r] == 0) continue; // Skip drawing if brightness is zero
-    CRGB contribution = inputColor;
-    contribution.nscale8(ringBrightness[r]);
-    // CRGB base = inputColor; 
+    // uint8_t b = ringBrightness[r];
+    // CRGB base = (((8 - r) & 1) == 0) ? primaryColor : altColor; // outermost ring (r==8) uses primaryColor
+    CRGB base = inputColor; 
     for (int i = 0; i < ringSizes[r]; i++) {
-      leds[rings[r][i]] += contribution;  // additive, not replace
-      // leds[rings[r][i]] = base;
-      // leds[rings[r][i]].nscale8(ringBrightness[r]);
+      leds[rings[r][i]] = base;
+      leds[rings[r][i]].nscale8(ringBrightness[r]);
     }
-    //NEWLINEs↑6
   }
-  // FastLED.show();
+  FastLED.show();
 }
 // Rainbow Fade: The mode so nice we put it twice (fading out and fading in)
 void showRainbowOut(uint16_t fadeSpeed) { // Rainbow fade effect across all rings
@@ -1446,7 +1420,7 @@ void showRainbowOut(uint16_t fadeSpeed) { // Rainbow fade effect across all ring
       leds[rings[r][i]] = CHSV(ringHue, 255, 255);
     }
   }
-  // FastLED.show();
+  FastLED.show();
 }
 void showRainbowIn(uint16_t fadeSpeed) { // Rainbow fade effect across all rings
   static uint8_t baseHue = 0;
@@ -1462,7 +1436,7 @@ void showRainbowIn(uint16_t fadeSpeed) { // Rainbow fade effect across all rings
       leds[rings[r][i]] = CHSV(ringHue, 255, 255);
     }
   }
-  // FastLED.show();
+  FastLED.show();
 }
 void showSpiralFill(const CRGB* activePalette, uint8_t numColors) { // Spiral fill effect
   static unsigned long lastUpdate = 0;
@@ -1471,10 +1445,8 @@ void showSpiralFill(const CRGB* activePalette, uint8_t numColors) { // Spiral fi
 
   // Wipe to black only at the onset of the mode
   if (firstSpiralRun == true) {
-    // fill_solid(leds, NUM_LEDS, CRGB::Black);
-
-    // // FastLED.show();
-
+    fill_solid(leds, NUM_LEDS, CRGB::Black);
+    FastLED.show();
     firstSpiralRun = false;
     pixelIndex = 0;
     colorIndex = 0;
@@ -1487,9 +1459,7 @@ void showSpiralFill(const CRGB* activePalette, uint8_t numColors) { // Spiral fi
     if (pixelIndex < NUM_LEDS) {
       leds[NUM_LEDS - 1 - pixelIndex] = activePalette[colorIndex]; // Fill from the (inner) end of the light pebbles string
       pixelIndex++;
-
-      // // FastLED.show();
-
+      FastLED.show();
     } else {
       // Finished this color, move to next color
       colorIndex++;
@@ -1505,7 +1475,7 @@ void showRadarSweep(uint8_t tailLength) {
   // const uint8_t tailLength = 10; // Number of fading tail sectors
   const uint8_t fadeStep = 128 / tailLength;  // Amount to fade per tail step
 
-  // fill_solid(leds, NUM_LEDS, CRGB::Black);
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
 
   // Sweep timing
   if (millis() - lastUpdate > 175) { // 175 ms per sectorsweep
@@ -1525,18 +1495,16 @@ void showRadarSweep(uint8_t tailLength) {
       (palette[7].b * brightness) / 255
     );
     for (int i = 0; i < sectorLens[tailIdx]; i++) {
-      // leds[sectorPixels[tailIdx][i]] = color;
-      leds[sectorPixels[tailIdx][i]] += color;
+      leds[sectorPixels[tailIdx][i]] = color;
     }
   }
 
   // Leading edge: only the radial line in white
   for (int i = 0; i < radialSizes[sweepIndex]; i++) {
-    // leds[radials[sweepIndex][i]] = CRGB::White;
-    leds[radials[sweepIndex][i]] += CRGB::White;
+    leds[radials[sweepIndex][i]] = CRGB::White;
   }
 
-  // FastLED.show();
+  FastLED.show();
 }
 void showDynamicFlower(int octalRotations) {
   static int animStep = 0;
@@ -1547,7 +1515,7 @@ void showDynamicFlower(int octalRotations) {
   const unsigned long animInterval = 250;  // ms between animation steps
 
   // Clear all LEDs for outline
-  // fill_solid(leds, NUM_LEDS, CRGB::Black);
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
 
   // Draw all curves in color
   for (int c = 0; c < 8; c++) {
@@ -1589,7 +1557,7 @@ void showDynamicFlower(int octalRotations) {
     leds[leftCurves[curveIdx][(curveLen - 6 + pos) % curveLen]] = CRGB::Black;
   }
 
-  // FastLED.show();
+  FastLED.show();
 }
 void showAperture() { // For the good of all of us
   static unsigned long lastUpdate = 0;
@@ -1600,7 +1568,7 @@ void showAperture() { // For the good of all of us
   if (firstApertureRun || millis() - lastUpdate > updateInterval) {
     if (firstApertureRun) {
       firstApertureRun = false;
-      // fill_solid(leds, NUM_LEDS, CRGB::Black);
+      fill_solid(leds, NUM_LEDS, CRGB::Black);
     }
     lastUpdate = millis();
     ring8Color = (random(2) == 0) ? CRGB::Blue : CRGB::OrangeRed;
@@ -1608,8 +1576,7 @@ void showAperture() { // For the good of all of us
   }
   for (int i = 0; i < ringSizes[7]; i++) leds[ring8[i]] = ring8Color;
   for (int i = 0; i < ringSizes[8]; i++) leds[ring9[i]] = ring9Color;
-
-  // FastLED.show(); 
+  FastLED.show(); 
 }
 void showCurvyWaves() { // Isa's Windmill
   const unsigned long PERIOD = 2400UL;  // 2.4s for one full undulation cycle (25rpm)
@@ -1620,7 +1587,7 @@ void showCurvyWaves() { // Isa's Windmill
   const uint8_t OUT_BRI = 100;          // Brightness for outer white pixels
   CRGB primary = CRGB::Blue;
   CRGB secondary = CRGB::Magenta;
-  // fill_solid(leds, NUM_LEDS, CRGB::Black);
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
 
   // --- central white inner ring and outer ring ---
   for (int i = 0; i < 8; ++i) {
@@ -1669,9 +1636,172 @@ void showCurvyWaves() { // Isa's Windmill
     }
   }
 
-  // FastLED.show();
+  FastLED.show();
 }
+
 // // "Wheels" subset of the Dynamic Modes:
+// // void showWOTYCycle() {  // Sonnet 4.5 (first) try at a smoothly Cycling WOTY
+// //   static unsigned long lastUpdate = 0;
+// //   static float continuousHueOffset = 0.0; // Smooth floating-point offset
+// //   const unsigned long updateInterval = 30; // 30ms for smooth animation
+// //   const float hueSpeed = 0.3; // Hue units per update (adjust for speed)
+// //   // Update animation
+// //   if (millis() - lastUpdate >= updateInterval) {
+// //     lastUpdate = millis();
+// //     continuousHueOffset += hueSpeed;
+// //     if (continuousHueOffset >= 256.0) continuousHueOffset -= 256.0;
+// //   }
+// //   // Convert yearPalette to HSV for smooth interpolation
+// //   static CHSV yearPaletteHSV[8];
+// //   static bool paletteConverted = false;
+// //   if (!paletteConverted) {
+// //     for (int i = 0; i < 8; i++) {
+// //       yearPaletteHSV[i] = rgb2hsv_approximate(yearPalette[i]);
+// //       yearPaletteHSV[i].saturation = 255; // Force full saturation
+// //       yearPaletteHSV[i].value = 255; // Force full brightness
+// //     }
+// //     paletteConverted = true;
+// //   }
+// //   // Draw each sector with interpolated color
+// //   for (int s = 0; s < 16; s++) {
+// //     // Map sector to palette position (0.0 to 8.0)
+// //     float palettePos = (s / 2.0) + (continuousHueOffset / 32.0); // Divide by 32 to slow down palette rotation
+// //     while (palettePos >= 8.0) palettePos -= 8.0;
+// //     // Get two adjacent palette colors to interpolate between
+// //     int paletteIndex1 = ((int)palettePos) % 8;
+// //     int paletteIndex2 = (paletteIndex1 + 1) % 8;
+// //     float blend = palettePos - (int)palettePos; // 0.0 to 1.0
+// //     CHSV color1 = yearPaletteHSV[paletteIndex1];
+// //     CHSV color2 = yearPaletteHSV[paletteIndex2];
+// //     // Calculate safe hue transition
+// //     int16_t hueDelta = safeHueDelta(color1.hue, color2.hue);
+// //     uint8_t interpolatedHue = color1.hue + (int16_t)(hueDelta * blend);
+// //     // Interpolate saturation and value (should stay at 255, but just in case)
+// //     uint8_t interpolatedSat = color1.saturation + (int16_t)((color2.saturation - color1.saturation) * blend);
+// //     uint8_t interpolatedVal = color1.value + (int16_t)((color2.value - color1.value) * blend);
+// //     CHSV interpolatedColor = CHSV(interpolatedHue, interpolatedSat, interpolatedVal);
+// //     // Draw all pixels in this sector
+// //     for (int i = 0; i < sectorLens[s]; i++) {
+// //       leds[sectorPixels[s][i]] = interpolatedColor;
+// //     }
+// //   }
+// //   FastLED.show();
+// // }
+// void showWOTYRotate(const CRGB* activePalette, int rpm) {
+//   static unsigned long lastUpdate = 0;
+//   static uint8_t rotationOffset = 22; // Start with Yule at the top
+//   const unsigned long updateInterval = 60000 / (rpm * 32); // Calculate update interval based on RPM
+//   if (firstWOTYRotateRun) {  // On function call: reset to Yule at the top
+//     rotationOffset = 22;
+//     firstWOTYRotateRun = false;
+//   }
+//   if (millis() - lastUpdate >= updateInterval) {
+//     lastUpdate = millis();
+//     rotationOffset = (rotationOffset + 31) % 32; // Rotate by one segment (half-sector)
+//   }
+//   for (int ss = 0; ss < 32; ss++) {
+//     // Rotate the palette assignment
+//     int paletteIndex = ((ss+rotationOffset) / 4) % 8;
+//     CRGB color = activePalette[7-paletteIndex]; 
+//     int prevIndex = (paletteIndex+7) % 8;
+//     CRGB prevColor = activePalette[7-prevIndex]; 
+//     int s = ss / 2;
+//     for (int i = 0; i < sectorLens[s]; i++) 
+//       leds[sectorPixels[s][i]] = color;
+//     if (rotationOffset % 4 == 3) 
+//       if (s % 2 == 0)  // Cardinal sector
+//         for (int i = 5; i < sectorLens[s]; i++) 
+//           leds[sectorPixels[s][i]] = prevColor;
+//     if (rotationOffset % 4 == 1) 
+//       if (s % 2 == 1)  // Secondary sector
+//         for (int i = 5; i < sectorLens[s]; i++) 
+//           leds[sectorPixels[s][i]] = prevColor;
+//   }
+//   FastLED.show();
+// }
+// // // an already-good version with simple blend():
+// // void showWheelAround(const CRGB* activePalette, int rpm) {
+// //   static unsigned long lastUpdate = 0;
+// //   static uint8_t rotationOffset = 0;
+// //   const unsigned long updateInterval = 60000 / (rpm * 32); // Calculate update interval based on RPM
+// //   if (firstWheelAroundRun) {  // On function call: reset to Yule at the top
+// //     rotationOffset = 0;
+// //     firstWheelAroundRun = false;
+// //   }
+// //   if (millis() - lastUpdate >= updateInterval) {
+// //     lastUpdate = millis();
+// //     rotationOffset = (rotationOffset + 31) % 32; // Rotate by one segment (half-sector)
+// //   }
+// //   for (int ss = 0; ss < 32; ss++) {
+// //     // Rotate the palette assignment
+// //     int paletteIndex = ((ss+rotationOffset) / 4) % 8;
+// //     CRGB color = activePalette[7-paletteIndex]; 
+// //     int prevIndex = (paletteIndex+7) % 8;
+// //     CRGB prevColor = activePalette[7-prevIndex]; 
+// //     int nextIndex = (paletteIndex+1) % 8;
+// //     CRGB nextColor = activePalette[7-nextIndex]; 
+// //     int s = ss / 2;
+// //     uint8_t blendAmount = 128;
+// //     for (int i = 0; i < sectorLens[s]; i++) 
+// //       leds[sectorPixels[s][i]] = color;
+// //     if (rotationOffset % 4 == 3) 
+// //       if (s % 2 == 0)  // Cardinal sector, cardinal radials
+// //         for (int i = 5; i < sectorLens[s]; i++) 
+// //           leds[sectorPixels[s][i]] = blend(color, prevColor, blendAmount);
+// //     if (rotationOffset % 4 == 2) 
+// //       if (s % 2 == 0)  // Cardinal sector, right off-radials
+// //         for (int i = 0; i < 5; i++) 
+// //           leds[sectorPixels[s][i]] = blend(color, nextColor, blendAmount);
+// //     if (rotationOffset % 4 == 1) 
+// //       if (s % 2 == 1)  // Secondary sector, secondary radials
+// //         for (int i = 5; i < sectorLens[s]; i++) 
+// //           leds[sectorPixels[s][i]] = blend(color, prevColor, blendAmount);
+// //     if (rotationOffset % 4 == 0) 
+// //       if (s % 2 == 1)  // Secondary sector, left off-radials
+// //         for (int i = 0; i < 5; i++) 
+// //           leds[sectorPixels[s][i]] = blend(color, nextColor, blendAmount);
+// //   }
+// //   FastLED.show();
+// // }
+// // a new version using nblend():
+// void showWheelAround(const CRGB* activePalette, int rpm) {
+//   static unsigned long lastUpdate = 0;
+//   static uint8_t rotationOffset = 0;
+//   const unsigned long updateInterval = 60000 / (rpm * 32); // Calculate update interval based on RPM
+//   if (firstWheelAroundRun) {  // On function call: reset to Yule at the top
+//     rotationOffset = 0;
+//     firstWheelAroundRun = false;
+//   }
+//   if (millis() - lastUpdate >= updateInterval) {
+//     lastUpdate = millis();
+//     rotationOffset = (rotationOffset + 31) % 32; // Rotate by one segment (half-sector)
+//   }
+//   for (int ss = 0; ss < 32; ss++) {
+//     // Rotate the palette assignment
+//     int paletteIndex = ((ss+rotationOffset) / 4) % 8;
+//     CRGB color = activePalette[7-paletteIndex]; 
+//     int prevIndex = (paletteIndex+7) % 8;
+//     CRGB prevColor = activePalette[7-prevIndex]; 
+//     int nextIndex = (paletteIndex+1) % 8;
+//     CRGB nextColor = activePalette[7-nextIndex]; 
+//     int s = ss / 2;
+//     uint8_t blendAmount = 128; // 50% blend
+//     // for (int i = 0; i < sectorLens[s]; i++) leds[sectorPixels[s][i]] = color;
+//     if (rotationOffset % 4 == 3 && s % 2 == 0)  // Cardinal sector, cardinal radials
+//       // for (int i = 5; i < sectorLens[s]; i++) nblend(leds[sectorPixels[s][i]], prevColor, blendAmount);
+//       for (int i = 5; i < sectorLens[s]; i++) leds[sectorPixels[s][i]] = prevColor;
+//     if (rotationOffset % 4 == 2 && s % 2 == 0)  // Cardinal sector, right off-radials
+//       // for (int i = 0; i < 5; i++) nblend(leds[sectorPixels[s][i]], nextColor, blendAmount);
+//       for (int i = 0; i < 5; i++) leds[sectorPixels[s][i]] = color;
+//     if (rotationOffset % 4 == 1 && s % 2 == 1)  // Secondary sector, secondary radials
+//       // for (int i = 5; i < sectorLens[s]; i++) nblend(leds[sectorPixels[s][i]], prevColor, blendAmount);
+//       for (int i = 5; i < sectorLens[s]; i++) leds[sectorPixels[s][i]] = prevColor;
+//     if (rotationOffset % 4 == 0 && s % 2 == 1)  // Secondary sector, left off-radials
+//       // for (int i = 0; i < 5; i++) nblend(leds[sectorPixels[s][i]], nextColor, blendAmount);
+//       for (int i = 0; i < 5; i++) leds[sectorPixels[s][i]] = color;
+//   }
+//   FastLED.show();
+// }
 void showWheel64(const CRGB* activePalette, int rpm) {
   static unsigned long lastUpdate = 0;
   static uint8_t rotationOffset = 31; // Start with Ostara at the top?
@@ -1708,7 +1838,7 @@ void showWheel64(const CRGB* activePalette, int rpm) {
     }
   }
 
-  // FastLED.show();
+  FastLED.show();
 }
 void showRainbowWheel(uint16_t fadeSpeed) {
   static uint8_t baseHue = 0;
@@ -1726,7 +1856,7 @@ void showRainbowWheel(uint16_t fadeSpeed) {
       leds[anglePixels[a][i]] = CHSV(angleHue, 255, 255);
     }
   }
-  // FastLED.show();
+  FastLED.show();
 }
 
 // Combo Mode functions:
@@ -1734,27 +1864,27 @@ void showSnowyWinterSolstice() {
   showWOTY(355); // Dec 21st (Yule)
   showTwinkleReal();
 }
-void showCoolPinwheel() { // order flipped; ask Isa if better
-  showTarget(CRGB::Cyan);
+void showCoolPinwheel() {
   showCurvyWaves();
+  showTarget(CRGB::Cyan);
 }
-void showSparkInvaders() { // now good again
-  showTwinkleOrange();
+void showSparkInvaders() {
   showRadarSweep(7);
+  showTwinkleOrange();
 }
-void showSpacePortal() { // now good
-  showTwinkleReal();
+void showSpacePortal() {
   showAperture();
+  showTwinkleReal();
 }
-void showFlowerFocus() { // now good again
+void showFlowerFocus() {
   showFlowerOutline(2);
   showTarget(CRGB::Violet);
 }
-void showSunTarget() { // now good
+void showSunTarget() {
   showSunBurst();
   showTarget(CRGB::Magenta);
 }
-void showIsasFireworks() { // repaired; ask Isa if still good for her
+void showIsasFireworks() {
   showAperture();
   showTarget(CRGB::Magenta);
   showCenterBurst();
@@ -1764,20 +1894,20 @@ void showKunterbuntSpiral() {
   showSpiralFill(yearPalette, 8);
   showSpiralFill(palette, 8);
 }
-void showStargateSG1() { // order flipped; ask Isa if better
-  showTarget(CRGB::Cyan);
+void showStargateSG1() {
   showAperture();
+  showTarget(CRGB::Cyan);
 }
-void showLatEotT() { // now good
-    showBreathing();
+void showLatEotT() {
     showTarget(CRGB::OrangeRed);
+    showBreathing();
 }
 void showOstaraFocus() {
   showFlowerMono(yearPalette[2]); // Ostara's color
   showTarget(CRGB::Violet); // Original variant for Ostara
   // showSunBurst(); // Isa also likes it with Sunburst (instead of Target)
 }
-void showHornySeason() { //try flipping
+void showHornySeason() {
   showFlowerMono(yearPalette[2]); // Ostara's colour flowers
   showTarget(CRGB::Cyan);         // Beltane's colour focuses
   showSunBurst();                 // Litha's colour bursts
@@ -1799,7 +1929,7 @@ void setup() {
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
   FastLED.setBrightness(brightnessLevels[brightnessIndex]);
   FastLED.clear(); // Clear all LEDs at startup
-  FastLED.show(); // Fine to leave this here
+  FastLED.show();
 }
 
 // --- Main loop ---
@@ -1841,9 +1971,6 @@ void loop() {
   static bool longTap = false;
 
   if (menuVisualizing) {  // Visualize current or next menu level; longTap visualizes next level
-    //NEWLINE5↓
-    fill_solid(leds, NUM_LEDS, CRGB::Black);
-    //NEWLINE5↑
     if (longTap) {
       if (menuLevel == 2 && modeIndex == NUM_TERTIARY_MODES - 1) {
         showSeasonalWheel(4); // Show 4 rings for brightness menu
@@ -1902,9 +2029,6 @@ void loop() {
       relayTouchStart = 0;
       longTap = false;
     }
-    //NEWLINE1↓
-    FastLED.show();
-    //NEWLINE1↑
     return;
   }
 
@@ -1927,9 +2051,7 @@ void loop() {
         // can give visual feedback without being interrupted by the wheel.
         brightnessIndex = (brightnessIndex + 1) % NUM_BRIGHTNESS_LEVELS;
         FastLED.setBrightness(brightnessLevels[brightnessIndex]);
-
-        FastLED.show(); // immediate feedback on brightness change
-
+        FastLED.show();               // immediate feedback
         altMandalaActive = true;
         lastTouch = millis();
         // do NOT start menuVisualizing here
@@ -1957,9 +2079,7 @@ void loop() {
     if (menuLevel == 3) {
       brightnessIndex = (brightnessIndex + 1) % NUM_BRIGHTNESS_LEVELS;
       FastLED.setBrightness(brightnessLevels[brightnessIndex]);
-
-      FastLED.show(); // immediate feedback on brightness change
-
+      FastLED.show();
       altMandalaActive = true;
       lastTouch = millis();
     } else {
@@ -1975,12 +2095,7 @@ void loop() {
   if (altMandalaActive && millis() - lastTouch <= getDynamicPhaseDuration()) {
     inFallback = false; // Just entered dynamic phase so not in fallback
     // Reset the reset flags effects if we just switched the mode
-    if (currentEffect != lastEffect) ModeSwitchFlagsReset();
-
-    //NEWLINE3↓
-    fill_solid(leds, NUM_LEDS, CRGB::Black);
-    //NEWLINE3↑
-
+    if (currentEffect != lastEffect) ModeSwitchFlagsReset();  
     switch (currentEffect) {
       case DynamicFlower:  showDynamicFlower(2); break; // 2 octal rotations bring White to the top
       case FoxyYB:         showStatic2(); break;
@@ -2036,30 +2151,27 @@ void loop() {
       inFallback = true; 
       ModeSwitchFlagsReset();
     }
-    //NEWLINE4↓
-    fill_solid(leds, NUM_LEDS, CRGB::Black);
-    //NEWLINE4↑
-
     // showWOTY(141); // 141 = May 21st (between Beltane and Litha, Summer's onset)
     // showHornySeason();
     showRainbowWheel(234); // one rainbow wheel revolution per minute
-    // showCoolPinwheel();
-    // showSparkInvaders();
-    // showIsasFireworks();
-
+    
     // showFlowerMono(yearPalette[2]); // Chartreuse (Ostara) flower
     // showOstaraFocus(); // Chartreuse (Ostara) flower with Violet target
     // showTwinkleReal();
     
     // showWOTY(355); // Dec 21st (Winter Solstice/Yule)
     // showWOTY(79); // 79 = Mar 20th (Ostara/Vernal Equinox)
-    // showWheel64(yearPalette, 12); // rotating WotY
+    // showWheel64(yearPalette, 12); 
     // showFlowerOutline(2); // 2 octal rotations bring White to the top
     // showTarget(CRGB::OliveDrab); // get back to this one at some point
-
+    // // Cotton candy (pastel wheel):
+    // showWheel64(pastelPalette, 24); // rp2.5s
+    // // sea&sky (cool wheel):
+    // showWheel64(coolPalette, 20); // rp3s
+    // // Fiery wheel (aka Softness):
+    // showWheel64(softPalette, 12); // rp5s
+    // showStargateSG1();
+    // showFragileSpokes(2);
     // showRainbowOut(40); // Rainbow fade as standby mode
   }
-  //NEWLINE2↓
-  FastLED.show();
-  //NEWLINE2↑
 }
