@@ -24,7 +24,7 @@
 // ═══════════════════ EDIT ME ═════════════════════════════════════════
 static const char* MUSE_WIFI_SSID = "Hallownest";
 static const char* MUSE_WIFI_PASS = "prettyplease";
-static const char* MUSE_TZ        = "CET-1CEST";   // your timezone — see note below
+static const char* MUSE_TZ        = "CET-1CEST,M3.5.0,M10.5.0/3";   // Germany
 // ═════════════════════════════════════════════════════════════════════
 
 static const char*    MUSE_NTP_SERVER      = "pool.ntp.org";

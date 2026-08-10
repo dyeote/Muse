@@ -65,9 +65,11 @@ enum EffectMode {  /// Define the effect modes
   Clock,               // Real-time rainbow clock (WiFi/NTP test)
 };
 
-// --- Menu mode arrays --- defRnbWheel,14+6+9,adjLamp ==31;
-const EffectMode mainModes[] = { // Primary modes (14)
-  WotY,            // full Static - Wheel of the Year
+// --- Menu mode arrays --- defRnbClk,15+6+9,adjLamp == 32 total modes in menu
+const EffectMode mainModes[] = { // Primary menu (15)
+  Clock,           // real-time rainbow clock (WiFi/NTP)
+  WotY,            // Wheel of the Year turned to current date (WiFi/NTP)
+
   SunBurst,        // full dynamic
   TwinkleOrange,   // half-full dynamic
   RainbowOut,      // full dynamic
@@ -91,10 +93,8 @@ const EffectMode mainModes[] = { // Primary modes (14)
   CenterBurst,     // full dynamic
   Target,          // full dynamic  
 };
-const EffectMode subModes[] = { // Secondary modes (7)
+const EffectMode subModes[] = { // Wheeling menu (6)
   // Mostly the wheeling modes
-  Clock,           // real-time rainbow clock (WiFi/NTP test)
-  
   SeaAndSky,       // Cool blues and greens wheel
   WheelTurn,       // Rotating Wheel of the Year using the 64-angles wheel function
 
@@ -105,7 +105,7 @@ const EffectMode subModes[] = { // Secondary modes (7)
   RainbowWheel,    // Clockwise rotating Rainbow using the new 64-angles mapping
   // RadarSweep,      // full dynamic ++
 };
-const EffectMode tertiaryModes[] = { // Tertiary modes (9)
+const EffectMode tertiaryModes[] = { // Combo menu (9)
   // New combos
   SunTarget,       // SunBurst + Target(Magenta)
   
@@ -544,6 +544,7 @@ bool firstWheelAroundRun = true;    // Flag to track first run of Wheel Around e
 bool firstApertureRun = true;       // Flag to track first run of Aperture effect
 static bool inFallback = false;     // Fallback mode state
 
+// --- More helper functions ---
 // Helper function for resetting flags when switching modes or falling back to default
 void ModeSwitchFlagsReset() {
   burstActiveCenter = false;
@@ -592,6 +593,14 @@ CRGB getBaseColor(int r, int i) {
     else return palette[4]; // Magenta
   }
   return CRGB::Black; // Fallback
+}
+
+// Helper function for RainbowClock, maps elapsed seconds within periodSec to an index in a numSlices-slot ring, running clockwise from true top.
+// This mandala's index 0 sits +16/64 of a turn clockwise from physical top, calibrated by hand.
+int museAngleSlice(int elapsedSec, int periodSec, int numSlices) {
+  int reversed = (periodSec - elapsedSec) % periodSec;
+  int offset   = numSlices / 4; // same physical offset as the 64-slice case, scaled down
+  return (((reversed * numSlices + periodSec / 2) / periodSec) + offset) % numSlices;
 }
 
 // --- All effects Mode functions ---
@@ -1435,7 +1444,6 @@ void showTarget(CRGB inputColor) { // Contracting red rings from outside inward 
   // Draw rings with current brightness, alternating colors
   // fill_solid(leds, NUM_LEDS, CRGB::Black);
   for (int r = 0; r < 9; r++) {
-    //NEWLINEs↓6
     if (ringBrightness[r] == 0) continue; // Skip drawing if brightness is zero
     CRGB contribution = inputColor;
     contribution.nscale8(ringBrightness[r]);
@@ -1445,7 +1453,6 @@ void showTarget(CRGB inputColor) { // Contracting red rings from outside inward 
       // leds[rings[r][i]] = base;
       // leds[rings[r][i]].nscale8(ringBrightness[r]);
     }
-    //NEWLINEs↑6
   }
   // FastLED.show();
 }
@@ -1744,17 +1751,8 @@ void showRainbowWheel(uint16_t fadeSpeed) {
   }
   // FastLED.show();
 }
-
-// Maps elapsed seconds within `periodSec` to an index in a `numSlices`-slot ring,
-// running clockwise from true top (this mandala's index 0 sits +16/64 of a turn
-// counterclockwise from top, calibrated by hand).
-int museAngleSlice(int elapsedSec, int periodSec, int numSlices) {
-  int reversed = (periodSec - elapsedSec) % periodSec;
-  int offset   = numSlices / 4; // same physical offset as the 64-slice case, scaled down
-  return (((reversed * numSlices + periodSec / 2) / periodSec) + offset) % numSlices;
-}
 void showRainbowClock() {
-  showRainbowWheel(234); // background hue-cycle doubles as the seconds motion
+  showRainbowWheel(234); // background hue-cycle doubles as the seconds hand
 
   int h, m, s;
   if (museGetTime(h, m, s)) {
@@ -1764,7 +1762,7 @@ void showRainbowClock() {
     leds[anglePixels[minuteAngle][angleLens[minuteAngle] - 1]] = CRGB::White; // outermost pixel
 
     int hourSpoke = museAngleSlice((h % 12) * 3600 + m * 60 + s, 43200, 16); // one revolution per 12h
-    int hourDepth = (radialSizes[hourSpoke] + 2) / 2; // first 5 of 9 on cardinals, first 3 of 4 on secondaries
+    int hourDepth = (radialSizes[hourSpoke] + 3) / 2; // first 6 of 9 on cardinals, first 3 of 4 on secondaries
     for (int i = 0; i < hourDepth; i++) leds[radials[hourSpoke][i]] = CRGB::White; // center-out to the midpoint
     if (hourSpoke % 2 == 1) { // secondary spoke: flank the tip to match the cardinals' 5-pixel reach
       int a = hourSpoke * 4; // this spoke's own angle slice
@@ -1890,9 +1888,7 @@ void loop() {
   static bool longTap = false;
 
   if (menuVisualizing) {  // Visualize current or next menu level; longTap visualizes next level
-    //NEWLINE5↓
     fill_solid(leds, NUM_LEDS, CRGB::Black);
-    //NEWLINE5↑
     if (longTap) {
       if (menuLevel == 2 && modeIndex == NUM_TERTIARY_MODES - 1) {
         showSeasonalWheel(4); // Show 4 rings for brightness menu
@@ -1951,9 +1947,7 @@ void loop() {
       relayTouchStart = 0;
       longTap = false;
     }
-    //NEWLINE1↓
-    FastLED.show();
-    //NEWLINE1↑
+    FastLED.show(); // Update LEDs to visualize menu level
     return;
   }
 
@@ -2025,7 +2019,7 @@ void loop() {
     inFallback = false; // Just entered dynamic phase so not in fallback
     // Reset the reset flags effects if we just switched the mode
     if (currentEffect != lastEffect) ModeSwitchFlagsReset();
-    // fill_solid(leds, NUM_LEDS, CRGB::Black); //NEWLINE3
+    // fill_solid(leds, NUM_LEDS, CRGB::Black);
     if (currentEffect != SpiralFill && currentEffect != KunterbuntSpiral) {
       fill_solid(leds, NUM_LEDS, CRGB::Black);
     }
@@ -2034,7 +2028,8 @@ void loop() {
       case FoxyYB:         showStatic2(); break;
       case SpectrumPizza:  showStatic3(); break;
       case FragileSpokes:  showFragileSpokes(2); break; // 2 octal rotations bring White to the top
-      case WotY:           showWOTY(141); break; // 141 = May 21st (between Beltane and Litha, Summer's onset)
+      case WotY:           showWOTY(museDayOfYearOr(141)); break; // real date; 141 = May 21st if no sync
+      // case WotY:           showWOTY(141); break; // 141 = May 21st (between Beltane and Litha, Summer's onset)
       // case TWINKLE:        showTwinkle(); break;
       case TwinkleReal:    showTwinkleReal(); break;
       case TwinkleOrange:  showTwinkleOrange(); break;
@@ -2085,13 +2080,14 @@ void loop() {
       inFallback = true; 
       ModeSwitchFlagsReset();
     }
-    fill_solid(leds, NUM_LEDS, CRGB::Black); //NEWLINE4
+    fill_solid(leds, NUM_LEDS, CRGB::Black); // Clear all LEDs before showing the standby mode
     
+    // MANUALLY SELECT DEFAULT/FALLBACK/STANDBY MODE HERE:
     showRainbowClock();
     // showRainbowWheel(234); // one rainbow wheel revolution per minute
-    // showWOTY(141); // 141 = May 21st (between Beltane and Litha, Summer's onset)
+    // showWOTY(museDayOfYearOr(141)); // real date; 141 = May 21st if no sync
+    
     // showHornySeason();
-
     // showSpiralFill(palette, 7); // broken only in Fallback, fine inside the menu
     // showSparkInvaders();
     // showCoolPinwheel();
@@ -2106,5 +2102,6 @@ void loop() {
     // showTarget(CRGB::OliveDrab); // get back to this one at some point
     // showRainbowOut(40); // Rainbow fade as standby mode
   }
-  FastLED.show(); //NEWLINE2
+
+  FastLED.show(); // Show the LEDs after all updates
 }
