@@ -1,9 +1,9 @@
-// muse_time.h  ──  Wi-Fi time sync for muse-touch-lights (ESP32-C3, v6)
+// muse_time.h : Wi-Fi time sync for muse-touch-lights (ESP32-C3, v6)
 //
 // Wi-Fi is switched ON only long enough to fetch the real time from the
 // internet, then switched OFF again. Once the time is set the ESP32 keeps
-// ticking on its own internal clock, so your Clock visual reads the time
-// with the radio fully off — no WS2812B interference, low power.
+// ticking on its own internal clock, so Clock visual reads the time with
+// the radio off : no WS2812B interference, low power.
 //
 // ─── HOW TO USE ──────────────────────────────────────────────────────
 //   1. Edit the three lines marked EDIT ME below.
@@ -37,7 +37,6 @@ static bool     _museTimeSet  = false;
 static bool     _museGaveUp   = false;  // stops retrying after MUSE_MAX_ATTEMPTS failures
 static uint8_t  _museAttempts = 0;
 static uint32_t _museLastSync = 0;
-
 
 // Turn Wi-Fi on, fetch the time, turn Wi-Fi off. Returns true on success.
 inline bool museSyncTimeNow() {
@@ -73,7 +72,6 @@ inline void museTimeBegin() {
     _museLastSync = millis();
 }
 
-
 // Call every loop(). Re-syncs on a schedule; does nothing in between.
 inline void museTimeTick() {
     if (!_museTimeSet && _museGaveUp) return;   // already gave up, wait for reboot
@@ -86,7 +84,6 @@ inline void museTimeTick() {
     }
 }
 
-
 // Read the current local time. Returns false until the first sync succeeds.
 inline bool museGetTime(int& hour, int& minute, int& second) {
     if (!_museTimeSet) return false;
@@ -96,4 +93,19 @@ inline bool museGetTime(int& hour, int& minute, int& second) {
     minute = t.tm_min;    // 0–59
     second = t.tm_sec;    // 0–59
     return true;
+}
+
+// Read today's day-of-year (1–366). Returns false until the first sync succeeds.
+inline bool museGetDayOfYear(int& dayOfYear) {
+    if (!_museTimeSet) return false;
+    struct tm t;
+    if (!getLocalTime(&t)) return false;
+    dayOfYear = t.tm_yday + 1;   // tm_yday counts from 0
+    return true;
+}
+
+// Same, but returns 'fallback' if the time isn't known yet.
+inline int museDayOfYearOr(int fallback) {
+    int d;
+    return museGetDayOfYear(d) ? d : fallback;
 }
